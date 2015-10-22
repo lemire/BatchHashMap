@@ -25,8 +25,8 @@ struct hashtable_s {
     struct entry_s **table;
 };
 
-typedef struct hashtable_s hashtable_t;
 
+typedef struct hashtable_s hashtable_t;
 
 /* Create a new hashtable. */
 hashtable_t *ht_create( size_t size ) {
@@ -60,12 +60,43 @@ size_t ht_hash( hashtable_t *hashtable, char *key ) {
     size_t hashval = 0;
     size_t i = 0;
     size_t keyLength = strlen( key );
-    for ( hashval = i = 0; i < keyLength; ++i ) {
-        hashval += key[i], hashval += ( hashval << 10 ), hashval ^= ( hashval >> 6 );
+    for (i = 0; i < keyLength; ++i ) {
+        hashval= 57*hashval + (size_t) key[i];
     }
-    hashval += ( hashval << 3 ), hashval ^= ( hashval >> 11 ), hashval += ( hashval << 15 );
     return hashval % hashtable->size;
 }
+
+void ht_describe(hashtable_t *hashtable) {
+    size_t empty = 0;
+    size_t justoneentry = 0;
+    size_t maxentry = 0;
+    size_t morethanjustoneentry = 0;
+
+    printf("You have %zu buckets.\n",hashtable->size);
+    for(size_t i = 0; i < hashtable->size; ++i) {
+        entry_t *home = hashtable->table[ i ];
+        if(home == NULL) empty++;
+        else if (home->next == NULL) justoneentry++;
+        else {
+            size_t thiscount = 0;
+            while( home != NULL  ) {
+                home = home->next;
+                thiscount ++;
+            }
+            morethanjustoneentry++;
+            if(thiscount > maxentry) maxentry = thiscount;
+
+        }
+    }
+    printf("You have %zu empty buckets.\n", empty);
+    printf("You have %zu buckets with one entry. \n", justoneentry);
+    printf("Buckets with more than one entry contain %zu entries.\n",morethanjustoneentry);
+    printf("So you have %zu entries.\n",morethanjustoneentry+justoneentry);
+    printf("Percentage of entries in one-entry bucket: %f.\n",justoneentry*100.0/(morethanjustoneentry+justoneentry));
+    printf("Largest bucket has %zu entries.\n", maxentry);
+}
+
+
 
 /* Create a key-value pair. */
 entry_t *ht_newpair( char *key, char *value ) {
@@ -207,10 +238,9 @@ char * givemeastring(int i) {
     } while(0)
 
 int main( int argc, char **argv ) {
-    size_t N = 1000000;
-    size_t Nq = 10;
+    size_t N = 16777216;
     int bogus = 0;
-    size_t T= 10;
+    size_t T= 5;
     float cycles_per_search;
     char ** queries;
     char ** answer;
@@ -218,55 +248,63 @@ int main( int argc, char **argv ) {
     hashtable_t *hashtable = ht_create( N );
 
     uint64_t cycles_start, cycles_final;
-    printf("creating hash table\n");
-    for(size_t i = 0; i < N; ++i) {
+    printf("creating hash table (25 percent fill ratio) \n");
+    for(size_t i = 0; i < N/4; ++i) {
         char * key = givemeastring(i);
         char * val = givemeastring(i);
         ht_set( hashtable, key, val );
         free ( key );
         free ( val );
     }
-    printf("creating queries\n");
-    queries = (char **) malloc(Nq * sizeof(char *));
+    ht_describe(hashtable);
+    printf("\n");
+    for(size_t Nq= 1; Nq<11; Nq++) {
+        printf("Trying a batch of %zu queries.\n",Nq);
+        printf("creating queries\n");
+        queries = (char **) malloc(Nq * sizeof(char *));
 
-    answer= (char **) malloc(Nq * sizeof(char *));
+        answer= (char **) malloc(Nq * sizeof(char *));
 
-    buffer = (entry_t **) malloc(Nq * sizeof(entry_t *));
-    for(size_t i = 0; i < Nq; ++i) {
-        queries[i] = givemeastring(3*i+3);
+        buffer = (entry_t **) malloc(Nq * sizeof(entry_t *));
+        printf("benchmark\n");
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % N/4);
+            }
+            RDTSC_START(cycles_start);
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += ht_get( hashtable, queries[i] )[0];
+            }
+            RDTSC_FINAL(cycles_final);
+
+            cycles_per_search =
+                (cycles_final - cycles_start) / (float) Nq;
+            printf("one-by-one cycles %.2f \n", cycles_per_search);
+        }
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % N/4);
+            }
+
+            RDTSC_START(cycles_start);
+            for(size_t t=0; t<T; ++t) {
+                ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
+                for(size_t i = 0; i < Nq; ++i) {
+                    bogus += answer[i][0];
+                }
+
+            }
+            RDTSC_FINAL(cycles_final);
+
+            cycles_per_search =
+                (cycles_final - cycles_start) / (float) Nq;
+            printf("batch cycles %.2f \n", cycles_per_search);
+        }
+        printf("bogus = %d \n\n\n",bogus);
+        for(size_t i = 0; i < Nq; ++i) {
+            free(queries[i]);
+        }
+        free(queries);
     }
-    printf("benchmark\n");
-
-    RDTSC_START(cycles_start);
-    for(size_t t=0; t<T; ++t)
-      for(size_t i = 0; i < Nq; ++i) {
-        bogus += ht_get( hashtable, queries[i] )[0];
-      }
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search =
-        (cycles_final - cycles_start) / (float) Nq;
-    printf("cycles %.2f \n ", cycles_per_search);
-
-
-    RDTSC_START(cycles_start);
-    for(size_t t=0; t<T; ++t) {
-      ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
-      for(size_t i = 0; i < Nq; ++i) {
-        bogus += answer[i][0];
-      }
-
-    }
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search =
-        (cycles_final - cycles_start) / (float) Nq;
-    printf("cycles %.2f \n ", cycles_per_search);
-
-    printf("bogus = %d \n",bogus);
-    for(size_t i = 0; i < Nq; ++i) {
-        free(queries[i]);
-    }
-    free(queries);
     return 0;
 }
