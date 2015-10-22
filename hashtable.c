@@ -151,11 +151,34 @@ char *ht_get( hashtable_t *hashtable, char *key ) {
     /* Step through the bin, looking for our value. */
     pair = hashtable->table[ bin ];
     while(pair != NULL) {
-      if(strcmp( key, pair->key ) == 0) return pair-> value;
-      pair = pair->next;
+        if(strcmp( key, pair->key ) == 0) return pair-> value;
+        pair = pair->next;
     }
     return NULL;
 }
+
+/* Warn the hash table that you will soon retrieve the key. Return the hash value. */
+size_t ht_prefetch( hashtable_t *hashtable, char *key ) {
+    size_t bin = ht_hash( hashtable, key );
+    __builtin_prefetch(& hashtable->table[ bin ]);
+    return bin;
+}
+
+/* Retrieve a key-value pair from a hash table. You need to call ht_prefetch first. */
+char *ht_get_fast( hashtable_t *hashtable, char *key, size_t bin ) {
+    entry_t *pair;
+
+
+    /* Step through the bin, looking for our value. */
+    pair = hashtable->table[ bin ];
+    while(pair != NULL) {
+        if(strcmp( key, pair->key ) == 0) return pair-> value;
+        pair = pair->next;
+    }
+    return NULL;
+}
+
+
 
 /* Retrieve a key-value pair from a hash table. */
 void ht_batch_get( hashtable_t *hashtable, char **k, size_t count, char ** answer, entry_t ** buffer ) {
@@ -255,15 +278,17 @@ int main( int argc, char **argv ) {
     size_t N = 16777216;
     int bogus = 0;
     size_t T= 50000;
-    float cycles_per_search1, cycles_per_search2;
+    float cycles_per_search1, cycles_per_search2, cycles_per_search3;
     char ** queries;
     char ** answer;
+    size_t * hashbuffer;
     entry_t ** buffer;
     hashtable_t *hashtable = ht_create( N );
 
     uint64_t cycles_start, cycles_final;
     printf("creating hash table (25 percent fill ratio) \n");
-    for(size_t i = 0; i < N/4; ++i) {
+    size_t actrange = N/4;
+    for(size_t i = 0; i < actrange; ++i) {
         char * key = givemeastring(i);
         char * val = givemeastring(i);
         ht_set( hashtable, key, val );
@@ -273,17 +298,47 @@ int main( int argc, char **argv ) {
     ht_describe(hashtable);
     printf("\n");
     for(size_t Nq= 1; Nq<15; Nq++) {
-        printf("Trying a batch of %zu queries.\n",Nq);
+        size_t total;
+        printf("=== Trying a batch of %zu queries ===\n",Nq);
         queries = (char **) malloc(Nq * sizeof(char *));
-
+        hashbuffer = (size_t *) malloc(Nq * sizeof(size_t));
         answer= (char **) malloc(Nq * sizeof(char *));
 
         buffer = (entry_t **) malloc(Nq * sizeof(entry_t *));
-        printf("benchmark\n");
-        size_t total = 0;
+        printf("\n");
+
+        /***
+        * next part we cheat: we prefetch (outside the counted loop)
+        * the values and then we query them. This should allow us to estimate
+        * the time spent waiting for data.
+        */
+        total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
-                queries[i] = givemeastring(rand() % N/4);
+                queries[i] = givemeastring(rand() % actrange);
+            }
+
+            for(size_t i = 0; i < Nq; ++i) {
+                hashbuffer[i] = ht_prefetch( hashtable, queries[i] );
+            }
+            RDTSC_START(cycles_start);
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += ht_get_fast( hashtable, queries[i], hashbuffer[i] )[0];
+            }
+            RDTSC_FINAL(cycles_final);
+            total += cycles_final - cycles_start;
+
+        }
+        cycles_per_search1 =
+            total / (float) (Nq*T);
+        printf("one-by-one-with-outside-prefetch (cheating) cycles %.2f \n", cycles_per_search1);
+        /**
+        * Next part is usual one by one
+        */
+        total = 0;
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % actrange);
             }
             RDTSC_START(cycles_start);
             for(size_t i = 0; i < Nq; ++i) {
@@ -296,10 +351,13 @@ int main( int argc, char **argv ) {
         cycles_per_search1 =
             total / (float) (Nq*T);
         printf("one-by-one cycles %.2f \n", cycles_per_search1);
+        /**
+        * Next are complicated batched queries.
+        */
         total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
-                queries[i] = givemeastring(rand() % N/4);
+                queries[i] = givemeastring(rand() % actrange);
             }
 
             RDTSC_START(cycles_start);
@@ -317,10 +375,36 @@ int main( int argc, char **argv ) {
             total / (float) (Nq*T);
         printf("batch cycles %.2f \n", cycles_per_search2);
         printf("batch is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
+        /**
+        * We try a two-step approach, fetch and compute hash, then query.
+        */
+        total = 0;
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % actrange);
+            }
+
+            RDTSC_START(cycles_start);
+            for(size_t i = 0; i < Nq; ++i) {
+                hashbuffer[i] = ht_prefetch( hashtable, queries[i] );
+            }
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += ht_get_fast( hashtable, queries[i], hashbuffer[i] )[0];
+            }
+            RDTSC_FINAL(cycles_final);
+            total += cycles_final - cycles_start;
+
+        }
+        cycles_per_search3 =
+            total / (float) (Nq*T);
+        printf("two-step cycles %.2f \n", cycles_per_search3);
+        printf("two-step is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search3)*100.0/cycles_per_search1);
         printf("bogus = %d \n\n\n",bogus);
 
 
-
+        /**
+        * rest are optimistic queries.
+        */
         total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
@@ -359,7 +443,7 @@ int main( int argc, char **argv ) {
         printf("batch optimistic cycles %.2f \n", cycles_per_search2);
         printf("batch optimistic is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
         printf("bogus = %d \n\n\n",bogus);
- 
+
 
 
 
@@ -369,6 +453,8 @@ int main( int argc, char **argv ) {
             free(queries[i]);
         }
         free(queries);
+        free(answer);
+        free(hashbuffer);
     }
     return 0;
 }
