@@ -88,12 +88,8 @@ void ht_describe(hashtable_t *hashtable) {
 
         }
     }
-    //printf("You have %zu empty buckets.\n", empty);
-    //printf("You have %zu buckets with one entry. \n", justoneentry);
-    //printf("Buckets with more than one entry contain %zu entries.\n",morethanjustoneentry);
     printf("You have %zu entries.\n",morethanjustoneentry+justoneentry);
     printf("Percentage of entries in one-entry bucket: %f.\n",justoneentry*100.0/(morethanjustoneentry+justoneentry));
-    //printf("Largest bucket has %zu entries.\n", maxentry);
 }
 
 
@@ -124,7 +120,7 @@ void ht_set( hashtable_t *hashtable, char *key, char *value ) {
     size_t bin = ht_hash( hashtable, key );
     entry_t *home = hashtable->table[ bin ];
     entry_t *next = home;
-
+    if(key == NULL) return; // nah!
     if(home == NULL) {
         hashtable->table[ bin ] = ht_newpair( key, value);
         return;
@@ -154,18 +150,11 @@ char *ht_get( hashtable_t *hashtable, char *key ) {
 
     /* Step through the bin, looking for our value. */
     pair = hashtable->table[ bin ];
-    while( pair != NULL && pair->key != NULL && strcmp( key, pair->key ) != 0 ) {
-        pair = pair->next;
+    while(pair != NULL) {
+      if(strcmp( key, pair->key ) == 0) return pair-> value;
+      pair = pair->next;
     }
-
-    /* Did we actually find anything? */
-    if( pair == NULL || pair->key == NULL || strcmp( key, pair->key ) != 0 ) {
-        return NULL;
-
-    } else {
-        return pair->value;
-    }
-
+    return NULL;
 }
 
 /* Retrieve a key-value pair from a hash table. */
@@ -179,16 +168,14 @@ void ht_batch_get( hashtable_t *hashtable, char **k, size_t count, char ** answe
         entry_t *pair = buffer[i];
         char * key = k[i];
 
-        while( pair != NULL && pair->key != NULL && strcmp( key, pair->key ) != 0 ) {
+        while( pair != NULL  && strcmp( key, pair->key ) != 0 ) {
             pair = pair->next;
         }
 
-        /* Did we actually find anything? */
-        if( pair == NULL || pair->key == NULL || strcmp( key, pair->key ) != 0 ) {
-            answer[i] = NULL;
-
-        } else {
+        if( pair != NULL ) {
             answer[i] = pair->value;
+        } else {
+            answer[i] = NULL;
         }
     }
 
@@ -258,7 +245,7 @@ int main( int argc, char **argv ) {
     }
     ht_describe(hashtable);
     printf("\n");
-    for(size_t Nq= 1; Nq<5; Nq++) {
+    for(size_t Nq= 1; Nq<15; Nq++) {
         printf("Trying a batch of %zu queries.\n",Nq);
         queries = (char **) malloc(Nq * sizeof(char *));
 
