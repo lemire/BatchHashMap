@@ -241,7 +241,7 @@ int main( int argc, char **argv ) {
     size_t N = 16777216;
     int bogus = 0;
     size_t T= 50000;
-    float cycles_per_search;
+    float cycles_per_search1, cycles_per_search2;
     char ** queries;
     char ** answer;
     entry_t ** buffer;
@@ -279,9 +279,9 @@ int main( int argc, char **argv ) {
             total += cycles_final - cycles_start;
 
         }
-        cycles_per_search =
+        cycles_per_search1 =
             total / (float) (Nq*T);
-        printf("one-by-one cycles %.2f \n", cycles_per_search);
+        printf("one-by-one cycles %.2f \n", cycles_per_search2);
         total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
@@ -299,9 +299,10 @@ int main( int argc, char **argv ) {
             total += cycles_final - cycles_start;
 
         }
-        cycles_per_search =
+        cycles_per_search2 =
             total / (float) (Nq*T);
-        printf("batch cycles %.2f \n", cycles_per_search);
+        printf("batch cycles %.2f \n", cycles_per_search2);
+        printf("batch is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
         printf("bogus = %d \n\n\n",bogus);
         for(size_t i = 0; i < Nq; ++i) {
             free(queries[i]);
