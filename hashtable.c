@@ -181,6 +181,33 @@ void ht_batch_get( hashtable_t *hashtable, char **k, size_t count, char ** answe
 
 }
 
+/* Retrieve a key-value pair from a hash table. Assume that whatever is found is correct. */
+char *ht_get_optimistic( hashtable_t *hashtable, char *key ) {
+    size_t bin = ht_hash( hashtable, key );
+    entry_t *pair;
+
+
+    /* Step through the bin, looking for our value. */
+    pair = hashtable->table[ bin ];
+    return pair-> value;
+}
+
+/* Retrieve a key-value pair from a hash table. Assume that whatever is found is correct.  */
+void ht_batch_get_optimistic( hashtable_t *hashtable, char **k, size_t count, char ** answer, entry_t ** buffer ) {
+    for(size_t i = 0; i < count; ++i ) {
+        char * key = k[i];
+        size_t bin = ht_hash( hashtable, key );
+        buffer[i] = hashtable->table[ bin ];
+    }
+    for(size_t i = 0; i < count; ++i ) {
+        entry_t *pair = buffer[i];
+        char * key = k[i];
+        answer[i] = pair->value;
+    }
+
+}
+
+
 
 /****
 * Rest is experimental stuff
@@ -291,6 +318,53 @@ int main( int argc, char **argv ) {
         printf("batch cycles %.2f \n", cycles_per_search2);
         printf("batch is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
         printf("bogus = %d \n\n\n",bogus);
+
+
+
+        total = 0;
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % N/4);
+            }
+            RDTSC_START(cycles_start);
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += ht_get_optimistic( hashtable, queries[i] )[0];
+            }
+            RDTSC_FINAL(cycles_final);
+            total += cycles_final - cycles_start;
+
+        }
+        cycles_per_search1 =
+            total / (float) (Nq*T);
+        printf("one-by-one optimistic  cycles %.2f \n", cycles_per_search1);
+        total = 0;
+        for(size_t t=0; t<T; ++t) {
+            for(size_t i = 0; i < Nq; ++i) {
+                queries[i] = givemeastring(rand() % N/4);
+            }
+
+            RDTSC_START(cycles_start);
+            ht_batch_get_optimistic( hashtable, queries, Nq,  answer, buffer ) ;
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += answer[i][0];
+            }
+
+            RDTSC_FINAL(cycles_final);
+
+            total += cycles_final - cycles_start;
+
+        }
+        cycles_per_search2 =
+            total / (float) (Nq*T);
+        printf("batch optimistic cycles %.2f \n", cycles_per_search2);
+        printf("batch optimistic is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
+        printf("bogus = %d \n\n\n",bogus);
+ 
+
+
+
+
+
         for(size_t i = 0; i < Nq; ++i) {
             free(queries[i]);
         }
