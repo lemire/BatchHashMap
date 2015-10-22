@@ -240,7 +240,7 @@ char * givemeastring(int i) {
 int main( int argc, char **argv ) {
     size_t N = 16777216;
     int bogus = 0;
-    size_t T= 5;
+    size_t T= 50000;
     float cycles_per_search;
     char ** queries;
     char ** answer;
@@ -258,15 +258,15 @@ int main( int argc, char **argv ) {
     }
     ht_describe(hashtable);
     printf("\n");
-    for(size_t Nq= 1; Nq<11; Nq++) {
+    for(size_t Nq= 1; Nq<5; Nq++) {
         printf("Trying a batch of %zu queries.\n",Nq);
-        printf("creating queries\n");
         queries = (char **) malloc(Nq * sizeof(char *));
 
         answer= (char **) malloc(Nq * sizeof(char *));
 
         buffer = (entry_t **) malloc(Nq * sizeof(entry_t *));
         printf("benchmark\n");
+        size_t total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
                 queries[i] = givemeastring(rand() % N/4);
@@ -276,30 +276,32 @@ int main( int argc, char **argv ) {
                 bogus += ht_get( hashtable, queries[i] )[0];
             }
             RDTSC_FINAL(cycles_final);
+            total += cycles_final - cycles_start;
 
-            cycles_per_search =
-                (cycles_final - cycles_start) / (float) Nq;
-            printf("one-by-one cycles %.2f \n", cycles_per_search);
         }
+        cycles_per_search =
+            total / (float) (Nq*T);
+        printf("one-by-one cycles %.2f \n", cycles_per_search);
+        total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
                 queries[i] = givemeastring(rand() % N/4);
             }
 
             RDTSC_START(cycles_start);
-            for(size_t t=0; t<T; ++t) {
-                ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
-                for(size_t i = 0; i < Nq; ++i) {
-                    bogus += answer[i][0];
-                }
-
+            ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += answer[i][0];
             }
+
             RDTSC_FINAL(cycles_final);
 
-            cycles_per_search =
-                (cycles_final - cycles_start) / (float) Nq;
-            printf("batch cycles %.2f \n", cycles_per_search);
+            total += cycles_final - cycles_start;
+
         }
+        cycles_per_search =
+            total / (float) (Nq*T);
+        printf("batch cycles %.2f \n", cycles_per_search);
         printf("bogus = %d \n\n\n",bogus);
         for(size_t i = 0; i < Nq; ++i) {
             free(queries[i]);
