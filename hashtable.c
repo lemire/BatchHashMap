@@ -286,8 +286,8 @@ int main( int argc, char **argv ) {
     hashtable_t *hashtable = ht_create( N );
 
     uint64_t cycles_start, cycles_final;
-    printf("creating hash table (75 percent fill ratio) \n");
-    size_t actrange = 3*N/4;
+    printf("creating hash table (25 percent fill ratio) \n");
+    size_t actrange = N/4;
     for(size_t i = 0; i < actrange; ++i) {
         char * key = givemeastring(i);
         char * val = givemeastring(i);
