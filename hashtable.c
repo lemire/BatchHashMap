@@ -238,7 +238,7 @@ int main( int argc, char **argv ) {
     printf("benchmark\n");
 
     RDTSC_START(cycles_start);
-    for(size_t t=0; t<T; ++t) 
+    for(size_t t=0; t<T; ++t)
       for(size_t i = 0; i < Nq; ++i) {
         bogus += ht_get( hashtable, queries[i] )[0];
       }
@@ -250,11 +250,13 @@ int main( int argc, char **argv ) {
 
 
     RDTSC_START(cycles_start);
-    ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
-    for(size_t t=0; t<T; ++t) 
+    for(size_t t=0; t<T; ++t) {
+      ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
       for(size_t i = 0; i < Nq; ++i) {
-        bogus += ht_get( hashtable, queries[i] )[0];
+        bogus += answer[i][0];
       }
+
+    }
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search =
