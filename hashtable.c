@@ -88,12 +88,12 @@ void ht_describe(hashtable_t *hashtable) {
 
         }
     }
-    printf("You have %zu empty buckets.\n", empty);
-    printf("You have %zu buckets with one entry. \n", justoneentry);
-    printf("Buckets with more than one entry contain %zu entries.\n",morethanjustoneentry);
-    printf("So you have %zu entries.\n",morethanjustoneentry+justoneentry);
+    //printf("You have %zu empty buckets.\n", empty);
+    //printf("You have %zu buckets with one entry. \n", justoneentry);
+    //printf("Buckets with more than one entry contain %zu entries.\n",morethanjustoneentry);
+    printf("You have %zu entries.\n",morethanjustoneentry+justoneentry);
     printf("Percentage of entries in one-entry bucket: %f.\n",justoneentry*100.0/(morethanjustoneentry+justoneentry));
-    printf("Largest bucket has %zu entries.\n", maxentry);
+    //printf("Largest bucket has %zu entries.\n", maxentry);
 }
 
 
@@ -281,7 +281,7 @@ int main( int argc, char **argv ) {
         }
         cycles_per_search1 =
             total / (float) (Nq*T);
-        printf("one-by-one cycles %.2f \n", cycles_per_search2);
+        printf("one-by-one cycles %.2f \n", cycles_per_search1);
         total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
