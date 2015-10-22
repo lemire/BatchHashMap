@@ -208,8 +208,9 @@ char * givemeastring(int i) {
 
 int main( int argc, char **argv ) {
     size_t N = 1000000;
-    size_t Nq = 1000;
+    size_t Nq = 10;
     int bogus = 0;
+    size_t T= 10;
     float cycles_per_search;
     char ** queries;
     char ** answer;
@@ -237,10 +238,10 @@ int main( int argc, char **argv ) {
     printf("benchmark\n");
 
     RDTSC_START(cycles_start);
-    for(size_t i = 0; i < Nq; ++i) {
+    for(size_t t=0; t<T; ++t) 
+      for(size_t i = 0; i < Nq; ++i) {
         bogus += ht_get( hashtable, queries[i] )[0];
-    }
-
+      }
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search =
@@ -250,10 +251,10 @@ int main( int argc, char **argv ) {
 
     RDTSC_START(cycles_start);
     ht_batch_get( hashtable, queries, Nq,  answer, buffer ) ;
-    for(size_t i = 0; i < Nq; ++i) {
-
+    for(size_t t=0; t<T; ++t) 
+      for(size_t i = 0; i < Nq; ++i) {
         bogus += ht_get( hashtable, queries[i] )[0];
-    }
+      }
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search =
