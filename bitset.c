@@ -99,7 +99,6 @@ void bitset_batch_get(bitset_t *bitset,  size_t * i,  size_t count, int * answer
 
 
 
-
 /////////////////
 
 
@@ -153,22 +152,6 @@ int main( int argc, char **argv ) {
         queries = (size_t *) malloc(Nq * sizeof(size_t));
         answer= (int *) malloc(Nq * sizeof(int));
         printf("\n");
-        total = 0;
-        for(size_t t=0; t<T; ++t) {
-            for(size_t i = 0; i < Nq; ++i) {
-                queries[i] = rand() % N;
-            }
-            RDTSC_START(cycles_start);
-            for(size_t i = 0; i < Nq; ++i) {
-                bogus += bitset_bogus_get( bitset, queries[i] );
-            }
-            RDTSC_FINAL(cycles_final);
-            total += cycles_final - cycles_start;
-
-        }
-        cycles_per_search1 =
-            total / (float) (Nq*T);
-        printf("bogus one-by-one (no mem access) cycles %.2f \n", cycles_per_search1);
 
         /**
         * Next part is usual one by one
@@ -215,6 +198,7 @@ int main( int argc, char **argv ) {
             total / (float) (Nq*T);
         printf("batch cycles %.2f \n", cycles_per_search2);
         printf("batch is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
+        printf("bogus = %d \n",bogus);
 
 
         free(queries);
