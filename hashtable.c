@@ -180,8 +180,10 @@ char *ht_get_fast( hashtable_t *hashtable, char *key, size_t bin ) {
 
 
 
-/* Retrieve a key-value pair from a hash table. */
-void ht_batch_get( hashtable_t *hashtable, char **k, size_t count, char ** answer, size_t* buffer ) {
+/* Retrieve a key-value pair from a hash table. Up to 32 keys are queried, others are ignored. */
+void ht_batch_get( hashtable_t *hashtable, char **k, size_t count, char ** answer) {
+    size_t buffer[32];
+    if(count > 32) count = 32;
     for(size_t i = 0; i < count; ++i ) {
         char * key = k[i];
         size_t bin = ht_hash( hashtable, key );
@@ -347,7 +349,7 @@ int main( int argc, char **argv ) {
             }
 
             RDTSC_START(cycles_start);
-            ht_batch_get( hashtable, queries, Nq,  answer, hashbuffer ) ;
+            ht_batch_get( hashtable, queries, Nq,  answer ) ;
             for(size_t i = 0; i < Nq; ++i) {
                 bogus += answer[i][0];
             }
