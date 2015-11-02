@@ -146,7 +146,7 @@ int main( int argc, char **argv ) {
     }
     bitset_describe(bitset);
     printf("\n");
-    for(size_t Nq= 1; Nq<15; Nq++) {
+    for(size_t Nq= 1; Nq<32; Nq++) {
         size_t total;
         printf("=== Trying a batch of %zu queries ===\n",Nq);
         queries = (size_t *) malloc(Nq * sizeof(size_t));

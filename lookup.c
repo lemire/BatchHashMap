@@ -156,7 +156,6 @@ size_t test_prefetch_l(uint32_t *query_list, size_t num_queries,
         char *string = strings[query];
         memcpy(output+length,string,l+1);
         length += l+1;
-        ///while ((output[length++] = *string++));
     }
     return length;
 }
