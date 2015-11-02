@@ -24,7 +24,7 @@
 #endif
 
 size_t batch_sizes[] =  {
-    1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 
+    1, 2, 4, 6, 8, 10, 12, 14, 16, 20,
     24, 28, 32, 40, 60, 100, 200, 400, 1000
 };
 
@@ -72,11 +72,11 @@ size_t prefetch_sizes[] =  {
 size_t init_storage_strings(char *storage, size_t storage_size,
                             char **strings, size_t num_strings) {
 
-    char *string = storage;  
+    char *string = storage;
     for (size_t i = 0; i < num_strings; i++) {
-        strings[i] = string;  
+        strings[i] = string;
         size_t string_length = STRING_LENGTH;
-        size_t random_char = (rand() % 255) + 1; 
+        size_t random_char = (rand() % 255) + 1;
         if (string + string_length < storage + storage_size) {
             memset(string, random_char, string_length);
             string[string_length] = 0;
@@ -98,6 +98,18 @@ size_t test_baseline(uint32_t *query_list, size_t num_queries,
         size_t query = query_list[i];
         char *string = strings[query];
         while ((output[length++] = *string++));
+    }
+    return length;
+}
+size_t test_baseline_l(uint32_t *query_list, size_t num_queries,
+                     char **strings, char *output, uint8_t * lens) {
+    size_t length = 0;
+    for (size_t i = 0; i < num_queries; i++) {
+        size_t query = query_list[i];
+        uint8_t l = lens[query];
+        char *string = strings[query];
+        memcpy(output+length,string,l+1);
+        length +=l+1;
     }
     return length;
 }
@@ -130,6 +142,26 @@ size_t test_prefetch(uint32_t *query_list, size_t num_queries,
     return length;
 }
 
+
+size_t test_prefetch_l(uint32_t *query_list, size_t num_queries,
+                     char **strings, size_t prefetch, char *output, uint8_t * lens) {
+    size_t length = 0;
+    for (size_t i = 0; i < num_queries; i++) {
+        if (i + prefetch < num_queries) {
+            uint32_t prefetch_query = query_list[i + prefetch];
+            __builtin_prefetch(strings[prefetch_query]);
+        }
+        uint32_t query = query_list[i];
+        uint8_t l = lens[query];
+        char *string = strings[query];
+        memcpy(output+length,string,l+1);
+        length += l+1;
+        ///while ((output[length++] = *string++));
+    }
+    return length;
+}
+
+
 size_t test_prefetch_stpcpy(uint32_t *query_list, size_t num_queries,
                             char **strings, size_t prefetch, char *output) {
     char *orig = output;
@@ -146,7 +178,7 @@ size_t test_prefetch_stpcpy(uint32_t *query_list, size_t num_queries,
 }
 
 size_t test_batch(uint32_t *query_list, size_t num_queries,
-                  size_t batch_size, char **strings, 
+                  size_t batch_size, char **strings,
                   char *test_out) {
     size_t test_len = 0;
     size_t i = 0;
@@ -160,13 +192,13 @@ size_t test_batch(uint32_t *query_list, size_t num_queries,
             char *string = strings[query];
             __builtin_prefetch(string);
         }
-        
+
         for (size_t j = i; j < i + batch_size; j++) {
             uint32_t query = query_list[j];
             char *string = strings[query];
             while ((test_out[test_len++] = *string++));
         }
-        
+
         i += batch_size;
     }
 
@@ -174,7 +206,7 @@ size_t test_batch(uint32_t *query_list, size_t num_queries,
 }
 
 size_t test_batch_stpcpy(uint32_t *query_list, size_t num_queries,
-                         size_t batch_size, char **strings, 
+                         size_t batch_size, char **strings,
                          char *test_out) {
     char *orig_out = test_out;
     size_t i = 0;
@@ -188,16 +220,16 @@ size_t test_batch_stpcpy(uint32_t *query_list, size_t num_queries,
             char *string = strings[query];
             __builtin_prefetch(string);
         }
-        
+
         for (size_t j = i; j < i + batch_size; j++) {
             uint32_t query = query_list[j];
             char *string = strings[query];
             test_out = stpcpy(test_out, string) + 1;
         }
-        
+
         i += batch_size;
     }
-    
+
     return test_out - orig_out;
 }
 
@@ -205,7 +237,7 @@ int verify_output(size_t test_len, size_t good_len, char *test_out, char *good_o
     if (test_len != good_len) {
         printf("Length mismatch [%zd != %zd]\n", test_len, good_len);
         return 0;
-    } 
+    }
     for (size_t i = 0; i < good_len; i++) {
         if (test_out[i] != good_out[i]) {
             printf("Output mismatch at %zd\n", i);
@@ -241,8 +273,17 @@ int main(int argc, char **argv) {
     size_t storage_size = NUM_STRINGS * ALLOC_STRING_LEN;
     char *storage = malloc(storage_size);
     char **strings = malloc(NUM_STRINGS * sizeof(char *));
+    uint8_t * strlens = malloc(NUM_STRINGS);
     init_storage_strings(storage, storage_size, strings, NUM_STRINGS);
-
+    for (size_t i = 0; i < NUM_STRINGS; i++) {
+            char *string = strings[i];
+            size_t l = strlen(string);// assume it fits in a byte
+            if(l > UINT8_MAX) {
+              printf("you have long strings and we are in trouble here.\n");
+              return -1;
+            }
+            strlens[i] = l;
+    }
     uint32_t query_list[NUM_QUERIES];
     for (size_t i = 0; i < NUM_QUERIES; i++) {
         query_list[i] = rand() % (NUM_STRINGS);
@@ -255,50 +296,59 @@ int main(int argc, char **argv) {
     size_t test_len = test_baseline(query_list, NUM_QUERIES, strings, test_out);
 
 #define xstringify(a) #a  /* double macro for string expansion of macro */
-#define stringify(a) xstringify(a) 
-    printf("Timing string_length='%s' num_strings='%s'\n", 
+#define stringify(a) xstringify(a)
+    printf("Timing string_length='%s' num_strings='%s'\n",
            stringify(STRING_LENGTH), stringify(NUM_STRINGS));
-    
+
     printf(" Baseline         ");
-    memset(test_out, 0, good_len); 
+    memset(test_out, 0, good_len);
     TIMED_TEST(test_len = test_baseline(query_list, NUM_QUERIES, strings, test_out));
-    verify_output(good_len, test_len, good_out, test_out); 
+    verify_output(good_len, test_len, good_out, test_out);
+    printf(" Baseline  length       ");
+    memset(test_out, 0, good_len);
+    TIMED_TEST(test_len = test_baseline_l(query_list, NUM_QUERIES, strings, test_out,strlens));
+    verify_output(good_len, test_len, good_out, test_out);
 
     for (size_t i = 0; i < COUNT(batch_sizes); i++) {
         size_t batch_size = batch_sizes[i];
         if (batch_size > NUM_QUERIES) batch_size = NUM_QUERIES;
-        memset(test_out, 0, good_len); 
+        memset(test_out, 0, good_len);
         printf(" Batch %4zd       ", batch_size);
         TIMED_TEST(test_len = test_batch(query_list, NUM_QUERIES, batch_size, strings, test_out));
         verify_output(good_len, test_len, good_out, test_out);
     }
 
     printf(" stpcpy           ");
-    memset(test_out, 0, good_len); 
+    memset(test_out, 0, good_len);
     TIMED_TEST(test_len = test_stpcpy(query_list, NUM_QUERIES, strings, test_out));
-    verify_output(good_len, test_len, good_out, test_out); 
+    verify_output(good_len, test_len, good_out, test_out);
 
     for (size_t i = 0; i < COUNT(batch_sizes); i++) {
         size_t batch_size = batch_sizes[i];
         if (batch_size > NUM_QUERIES) batch_size = NUM_QUERIES;
-        memset(test_out, 0, good_len); 
+        memset(test_out, 0, good_len);
         printf(" Batch %4zd stpcpy", batch_size);
         TIMED_TEST(test_len = test_batch_stpcpy(query_list, NUM_QUERIES, batch_size, strings, test_out));
         verify_output(good_len, test_len, good_out, test_out);
-    }    
+    }
 
     for (size_t i = 0; i < COUNT(prefetch_sizes); i++) {
         size_t prefetch = prefetch_sizes[i];
         printf(" Prefetch %3zd       ", prefetch);
         TIMED_TEST(test_len = test_prefetch(query_list, NUM_QUERIES, strings, prefetch, test_out));
-        verify_output(good_len, test_len, good_out, test_out); 
-    } 
+        verify_output(good_len, test_len, good_out, test_out);
+    }
+    for (size_t i = 0; i < COUNT(prefetch_sizes); i++) {
+        size_t prefetch = prefetch_sizes[i];
+        printf(" Prefetch %3zd l      ", prefetch);
+        TIMED_TEST(test_len = test_prefetch_l(query_list, NUM_QUERIES, strings, prefetch, test_out, strlens));
+        verify_output(good_len, test_len, good_out, test_out);
+    }
 
     for (size_t i = 0; i < COUNT(prefetch_sizes); i++) {
         size_t prefetch = prefetch_sizes[i];
         printf(" Prefetch %3zd stpcpy", prefetch);
         TIMED_TEST(test_len = test_prefetch_stpcpy(query_list, NUM_QUERIES, strings, prefetch, test_out));
-        verify_output(good_len, test_len, good_out, test_out); 
+        verify_output(good_len, test_len, good_out, test_out);
     }
 }
-
