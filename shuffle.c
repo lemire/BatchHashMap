@@ -34,15 +34,13 @@
 
 
 
-uint32_t x, y, z, w;
+uint32_t x;
 
-uint32_t xorshift128(void) {
-        uint32_t t = x ^ (x << 11);
-        x = y; y = z; z = w;
-        return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+uint32_t fastrand(void) {
+      x = ((x * 1103515245) + 12345) & 0x7fffffff;
+      return x;
 }
-
-#define USE_RAND
+//#define USE_RAND
 
 // return and integer between 0 and size -1 inclusively, return -1 in case of trouble
 size_t fairRandomInt(size_t size) {
@@ -55,7 +53,7 @@ size_t fairRandomInt(size_t size) {
 #ifdef USE_RAND
         rkey = rand();// is rand fair? hope so...
 #else
-        rkey = xorshift128();
+        rkey = fastrand();
 #endif
         candidate = rkey % size;
     } while(rkey + size  > RAND_MAX + candidate + 1 ); // will be predicted as false
