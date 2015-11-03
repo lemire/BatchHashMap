@@ -276,7 +276,7 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders( array, N, 32000 );
+    shuffle_sanders( array, N, 24000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -319,7 +319,7 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("prefetch 16 shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders_prefetch16( array, N, 32000 );
+    shuffle_sanders_prefetch16( array, N, 24000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
