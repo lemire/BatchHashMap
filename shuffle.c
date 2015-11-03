@@ -33,6 +33,17 @@
     } while(0)
 
 
+
+uint32_t x, y, z, w;
+
+uint32_t xorshift128(void) {
+        uint32_t t = x ^ (x << 11);
+        x = y; y = z; z = w;
+        return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+}
+
+#define USE_RAND
+
 // return and integer between 0 and size -1 inclusively, return -1 in case of trouble
 size_t fairRandomInt(size_t size) {
     if(size > RAND_MAX) { // will be predicted as false
@@ -41,7 +52,11 @@ size_t fairRandomInt(size_t size) {
     size_t candidate, rkey;
     // such a loop is necessary for the result to be fair
     do {
+#ifdef USE_RAND
         rkey = rand();// is rand fair? hope so...
+#else
+        rkey = xorshift128();
+#endif
         candidate = rkey % size;
     } while(rkey + size  > RAND_MAX + candidate + 1 ); // will be predicted as false
     return candidate;
@@ -266,6 +281,7 @@ int main( int argc, char **argv ) {
     for(i = 0; i < N; ++i) {
         array[i] = i;
     }
+    x=1;
     printf("\n");
     RDTSC_START(cycles_start);
     shuffle( array, N );
@@ -326,6 +342,6 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("sanders with prefetch 16 shuffle cycles per key  %.2f  \n", cycles_per_search1);
-  
+
     return bogus;
 }
