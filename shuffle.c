@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <immintrin.h>
 
 
 #define RDTSC_START(cycles)                                     \
@@ -58,6 +59,31 @@ void  shuffle(int *storage, size_t size) {
     }
 }
 
+// Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
+void  shuffle_sanders(int *storage, size_t size) {
+    size_t i;
+    size_t l;
+    size_t BLOCK_SIZE = size;
+#define NBR_BLOCK  8
+    size_t * counter = malloc(NBR_BLOCK * sizeof(size_t));
+    for(i = 0 ; i < NBR_BLOCK; ++i)
+      counter[i] = 0;
+    int* buffer = malloc(BLOCK_SIZE * NBR_BLOCK * sizeof(int));
+    for(i = 0; i < size; i++) {
+      int block = rand() % NBR_BLOCK; // NBR_BLOCK is a power of two
+      buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
+      counter[block]++;
+    }
+    l = 0;
+    for(i = 0; i < NBR_BLOCK; i++) {
+      shuffle(buffer + BLOCK_SIZE * i, counter[i]);
+      memcpy(storage + l,buffer + BLOCK_SIZE * i,counter[i]*sizeof(int));
+      l += counter[i];
+    }
+    free(buffer);
+    free(counter);
+}
+
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle_prefetch2(int *storage, size_t size) {
     size_t i;
@@ -88,6 +114,43 @@ void  shuffle_prefetch2(int *storage, size_t size) {
         storage[nextpos] = tmp; // you might have to read this store later
     }
 }
+
+//Fisher-Yates shuffle, shuffling an array of integers
+void  shuffle_buffer2(int *storage, size_t size) {
+    size_t i;
+    i = size;
+    if(size > 2) {
+        size_t nextposs[2];
+        nextposs[(i)%2] = fairRandomInt(i);
+        nextposs[(i-1)%2] = fairRandomInt(i - 1);
+        int buffer[2];
+        buffer[(i)%2] = storage[nextposs[(i)%2]];
+        buffer[(i-1)%2] = storage[nextposs[(i-1)%2]];
+
+
+        for (; i>2; i--) {
+            int thisindex = i % 2;
+            size_t nextpos = nextposs[thisindex];
+            // prefetching part
+            size_t np = fairRandomInt(i-2);
+            nextposs[thisindex] = np;
+            int val = buffer[thisindex];
+            buffer[thisindex] = storage[np];
+            // end of prefetching
+            int tmp = storage[i-1];// likely in cache
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+        }
+    }
+    for (; i>1; i--) {
+        size_t nextpos = fairRandomInt(i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
 
 
 //Fisher-Yates shuffle, shuffling an array of integers
@@ -122,6 +185,9 @@ void  shuffle_prefetch4(int *storage, size_t size) {
         storage[nextpos] = tmp; // you might have to read this store later
     }
 }
+
+
+
 
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle_prefetch8(int *storage, size_t size) {
@@ -210,6 +276,15 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
+    shuffle_sanders( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("sanders shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
     shuffle_prefetch2( array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
@@ -217,6 +292,14 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("prefetch 2 shuffle cycles per key  %.2f \n", cycles_per_search1);
+    RDTSC_START(cycles_start);
+    shuffle_buffer2( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("buffer 2 shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
     shuffle_prefetch4( array, N );
     bogus += array[0];
