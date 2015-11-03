@@ -162,7 +162,7 @@ size_t test_prefetch_length(uint32_t *query_list, size_t num_queries,
 
         uint32_t query = query_list[i];
         char *string = strings[query];
-        size_t length =  string[0];
+        size_t length = (unsigned char) string[0];
         memcpy(output, string+1, length);
         output += length;
     }
