@@ -149,6 +149,7 @@ size_t test_prefetch_l(uint32_t *query_list, size_t num_queries,
     for (size_t i = 0; i < num_queries; i++) {
         if (i + prefetch < num_queries) {
             uint32_t prefetch_query = query_list[i + prefetch];
+            __builtin_prefetch(lens[prefetch_query]);
             __builtin_prefetch(strings[prefetch_query]);
         }
         uint32_t query = query_list[i];
