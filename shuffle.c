@@ -59,20 +59,33 @@ void  shuffle(int *storage, size_t size) {
     }
 }
 
+uint32_t round2 (uint32_t v) {
+
+v--;
+v |= v >> 1;
+v |= v >> 2;
+v |= v >> 4;
+v |= v >> 8;
+v |= v >> 16;
+v++;
+return v;
+}
+
 // Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
-void  shuffle_sanders(int *storage, size_t size) {
+void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
     size_t i;
     size_t l;
-    size_t BLOCK_SIZE = size;
-    size_t NBR_BLOCK = 16;
+    size_t NBR_BLOCK = round2((size +buffersize -1)/buffersize);
+    size_t BLOCK_SIZE = 4 * buffersize;
     size_t * counter = malloc(NBR_BLOCK * sizeof(size_t));
     for(i = 0 ; i < NBR_BLOCK; ++i)
       counter[i] = 0;
     int* buffer = malloc(BLOCK_SIZE * NBR_BLOCK * sizeof(int));
     for(i = 0; i < size; i++) {
-      int block = rand() & ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
+      int block = rand() %  ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
       buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
       counter[block]++;
+      if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
     }
     l = 0;
     for(i = 0; i < NBR_BLOCK; i++) {
@@ -215,14 +228,12 @@ void  shuffle_prefetch16(int *storage, size_t size) {
         storage[nextpos] = tmp; // you might have to read this store later
     }
 }
-
 // Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
-// with prefetching
-void  shuffle_sanders_prefetch16(int *storage, size_t size) {
+void  shuffle_sanders_prefetch16(int *storage, size_t size, size_t buffersize) {
     size_t i;
     size_t l;
-    size_t BLOCK_SIZE = size;
-    size_t NBR_BLOCK = 16;
+    size_t NBR_BLOCK = round2((size +buffersize -1)/buffersize);
+    size_t BLOCK_SIZE = 4 * buffersize;
     size_t * counter = malloc(NBR_BLOCK * sizeof(size_t));
     for(i = 0 ; i < NBR_BLOCK; ++i)
       counter[i] = 0;
@@ -231,6 +242,7 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size) {
       int block = rand() & ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
       buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
       counter[block]++;
+      if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
     }
     l = 0;
     for(i = 0; i < NBR_BLOCK; i++) {
@@ -246,11 +258,10 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size) {
 int main( int argc, char **argv ) {
     size_t N = 16777216;
     int bogus = 0;
+    size_t i;
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
-
     uint64_t cycles_start, cycles_final;
-    size_t i;
     printf("populating array \n");
     for(i = 0; i < N; ++i) {
         array[i] = i;
@@ -265,7 +276,7 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders( array, N );
+    shuffle_sanders( array, N, 32000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -308,13 +319,13 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("prefetch 16 shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders_prefetch16( array, N );
+    shuffle_sanders_prefetch16( array, N, 32000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("sanders with prefetch 16 shuffle cycles per key  %.2f  \n", cycles_per_search1);
- 
+  
     return bogus;
 }
