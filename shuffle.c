@@ -34,7 +34,7 @@
 
 // return and integer between 0 and size -1 inclusively, return -1 in case of trouble
 size_t fairRandomInt(size_t size) {
-    if(size > RAND_MAX) {
+    if(size > RAND_MAX) { // will be predicted as false
         return -1;
     }
     size_t candidate, rkey;
@@ -42,39 +42,96 @@ size_t fairRandomInt(size_t size) {
     do {
         rkey = rand();// is rand fair? hope so...
         candidate = rkey % size;
-    } while(rkey + size  > RAND_MAX + candidate + 1 );
+    } while(rkey + size  > RAND_MAX + candidate + 1 ); // will be predicted as false
     return candidate;
 }
 
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle(int *storage, size_t size) {
-    for (size_t i=size; i>1; i--) {
+    size_t i;
+    for (i=size; i>1; i--) {
         size_t nextpos = fairRandomInt(i);
-        int tmp = storage[i-1];
-        storage[i - 1] = storage[nextpos];
-        storage[nextpos] = tmp;
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
     }
 }
+//Fisher-Yates shuffle, shuffling an array of integers
+void  shuffle_unrolled(int *storage, size_t size) {
+    size_t i = size;
+    for (; i>4; i-=4) {
+        size_t nextpos1 = fairRandomInt(i);
+        size_t nextpos2 = fairRandomInt(i - 1);
+        size_t nextpos3 = fairRandomInt(i - 2);
+        size_t nextpos4 = fairRandomInt(i - 3);
+        int tmp,val;
+        tmp = storage[i-1];
+        val = storage[nextpos1];
+        storage[i-1] = val;
+        storage[nextpos1] = tmp;
+        tmp = storage[i-2];
+        val = storage[nextpos2];
+        storage[i-2] = val;
+        storage[nextpos2] = tmp;
+        tmp = storage[i-3];
+        val = storage[nextpos3];
+        storage[i-3] = val;
+        storage[nextpos3] = tmp;
+        tmp = storage[i-4];
+        val = storage[nextpos4];
+        storage[i-4] = val;
+        storage[nextpos4] = tmp;
+    }
+    for (; i>1; i--) {
+        size_t nextpos = fairRandomInt(i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
 
 
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle2(int *storage, size_t size) {
     size_t i=size;
-    for (; i>2; i-=2) {
+    for (; i>4; i-=4) {
+        int tmp1 = storage[i-1];// likely in cache
+        int tmp2 = storage[i-2];// in cache
+        int tmp3 = storage[i-3];// in cache
+        int tmp4 = storage[i-4];// in cache
         size_t nextpos1 = fairRandomInt(i);
+        int val1 = storage[nextpos1]; // could be costly
         size_t nextpos2 = fairRandomInt(i - 1);
-        if(nextpos1 != nextpos2) {
-          int tmp1 = storage[nextpos1];
-          int tmp2 = storage[nextpos2];
-          storage[nextpos1] = storage[i-1];
-          storage[nextpos2] = storage[i-2];
-          storage[i-1] = tmp1;
-          storage[i-2] = tmp2;
+        size_t nextpos3 = fairRandomInt(i - 2);
+        size_t nextpos4 = fairRandomInt(i - 3);
+        if((nextpos1 != nextpos2) && (nextpos2 != nextpos3) && (nextpos3 != nextpos4) &&(nextpos4 != nextpos1)) {
+            storage[nextpos1] = tmp1; // you might have to read this store later
+            storage[i - 1] = val1;
+            int val2 = storage[nextpos2]; // could be costly
+            storage[nextpos2] = tmp2; // you might have to read this store later
+            storage[i - 2] = val2;
+            int val3 = storage[nextpos3]; // could be costly
+            storage[nextpos3] = tmp3; // you might have to read this store later
+            storage[i - 3] = val3;
+            int val4 = storage[nextpos4]; // could be costly
+            storage[nextpos4] = tmp4; // you might have to read this store later
+            storage[i - 4] = val4;
         } else {
-          // we swap locally
-          int tmp = storage[i-1];
-          storage[i - 1] = storage[i - 2];
-          storage[i - 2] = tmp;
+            int val;
+            storage[i-1] = val1;
+            storage[nextpos1] = tmp1;
+            val = storage[nextpos2]; // might not be val2
+            storage[i-2] = val;
+            storage[nextpos2] = tmp2;
+            val = storage[nextpos3]; // might not be val3
+            storage[i-3] = val;
+            storage[nextpos3] = tmp3;
+            val = storage[nextpos4]; // might not be val4
+            storage[i-4] = val;
+            storage[nextpos4] = tmp4;
         }
     }
     for (; i>1; i--) {
@@ -92,8 +149,9 @@ int main( int argc, char **argv ) {
     int *array = (int *) malloc( N * sizeof(int) );
 
     uint64_t cycles_start, cycles_final;
+    size_t i;
     printf("populating array \n");
-    for(size_t i = 0; i < N; ++i) {
+    for(i = 0; i < N; ++i) {
         array[i] = i;
     }
     printf("\n");
@@ -105,6 +163,15 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
+    RDTSC_START(cycles_start);
+    shuffle_unrolled( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("unrolled shuffle cycles per key  %.2f \n", cycles_per_search1);
+
 
     RDTSC_START(cycles_start);
     shuffle2( array, N );
@@ -113,7 +180,7 @@ int main( int argc, char **argv ) {
 
     cycles_per_search2 =
         ( cycles_final - cycles_start) / (float) (N);
-    printf("alt shuffle cycles per key %.2f \n", cycles_per_search1);
+    printf("alt shuffle cycles per key %.2f \n", cycles_per_search2);
 
     return bogus;
 }
