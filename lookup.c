@@ -74,34 +74,14 @@ size_t init_storage_strings(char *storage, size_t storage_size,
 
     char *string = storage;
     for (size_t i = 0; i < num_strings; i++) {
-        strings[i] = string;
+        strings[i] = string + 1;
         size_t string_length = STRING_LENGTH;
+        string[0] = (char) string_length +1;
+        string++;
         size_t random_char = (rand() % 255) + 1;
         if (string + string_length < storage + storage_size) {
             memset(string, random_char, string_length);
             string[string_length] = 0;
-            string += (string_length + 1);
-        } else {
-            printf("Strings buffer too small at i = %zd\n", i);
-            exit(1);
-        }
-    }
-
-    size_t storage_bytes_used = string - storage;
-    return storage_bytes_used;
-}
-
-size_t init_storage_strings_length(char *storage, size_t storage_size,
-                            char **strings, size_t num_strings) {
-
-    char *string = storage;
-    for (size_t i = 0; i < num_strings; i++) {
-        strings[i] = string;
-        size_t string_length = STRING_LENGTH;
-        size_t random_char = (rand() % 255) + 1;
-        if (string + string_length < storage + storage_size) {
-            memset(string+1, random_char, string_length);
-            string[0] = string_length;
             string += (string_length + 1);
         } else {
             printf("Strings buffer too small at i = %zd\n", i);
@@ -182,8 +162,8 @@ size_t test_prefetch_length(uint32_t *query_list, size_t num_queries,
 
         uint32_t query = query_list[i];
         char *string = strings[query];
-        size_t length = *string;
-        memcpy(output, string, length);
+        size_t length =  string[0];
+        memcpy(output, string+1, length);
         output += length;
     }
     return output - orig;
@@ -320,12 +300,9 @@ int main(int argc, char **argv) {
     size_t storage_size = NUM_STRINGS * ALLOC_STRING_LEN;
     char *storage = malloc(storage_size);
     char **strings = malloc(NUM_STRINGS * sizeof(char *));
-    char *storagel = malloc(storage_size);
-    char **stringsl = malloc(NUM_STRINGS * sizeof(char *));
-
+    char ** stringsl = malloc(NUM_STRINGS * sizeof(char *));
     uint8_t * strlens = malloc(NUM_STRINGS);
     init_storage_strings(storage, storage_size, strings, NUM_STRINGS);
-    init_storage_strings_length(storagel, storage_size, stringsl, NUM_STRINGS);
 
     for (size_t i = 0; i < NUM_STRINGS; i++) {
             char *string = strings[i];
@@ -335,6 +312,7 @@ int main(int argc, char **argv) {
               return -1;
             }
             strlens[i] = l;
+            stringsl[i] = strings[i] - 1;
     }
     uint32_t query_list[NUM_QUERIES];
     for (size_t i = 0; i < NUM_QUERIES; i++) {
@@ -375,12 +353,11 @@ int main(int argc, char **argv) {
     TIMED_TEST(test_len = test_stpcpy(query_list, NUM_QUERIES, strings, test_out));
     verify_output(good_len, test_len, good_out, test_out);
 
-    for (size_t i = 0; i < COUNT(batch_sizes); i++) {
-        size_t batch_size = batch_sizes[i];
-        if (batch_size > NUM_QUERIES) batch_size = NUM_QUERIES;
+    for (size_t i = 0; i < COUNT(prefetch_sizes); i++) {
+        size_t prefetch = prefetch_sizes[i];
         memset(test_out, 0, good_len);
-        printf(" Nate's fetched length %4zd ", batch_size);
-        TIMED_TEST(test_len = test_prefetch_length(query_list, NUM_QUERIES,  stringsl, batch_size, test_out));
+        printf(" Nate's fetched length %4zd ", prefetch);
+        TIMED_TEST(test_len = test_prefetch_length(query_list, NUM_QUERIES,  stringsl, prefetch, test_out));
         verify_output(good_len, test_len, good_out, test_out);
     }
     for (size_t i = 0; i < COUNT(batch_sizes); i++) {
