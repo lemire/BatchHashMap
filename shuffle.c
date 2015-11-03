@@ -82,7 +82,7 @@ void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
       counter[i] = 0;
     int* buffer = malloc(BLOCK_SIZE * NBR_BLOCK * sizeof(int));
     for(i = 0; i < size; i++) {
-      int block = rand() %  ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
+      int block = rand() &  ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
       buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
       counter[block]++;
       if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
@@ -256,13 +256,13 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size, size_t buffersize) {
 
 
 int main( int argc, char **argv ) {
-    size_t N = 16777216;
+    size_t N =  16777216;
     int bogus = 0;
     size_t i;
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
     uint64_t cycles_start, cycles_final;
-    printf("populating array \n");
+    printf("populating array %zu \n",N);
     for(i = 0; i < N; ++i) {
         array[i] = i;
     }
