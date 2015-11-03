@@ -91,6 +91,29 @@ size_t init_storage_strings(char *storage, size_t storage_size,
     return storage_bytes_used;
 }
 
+size_t init_storage_strings_length(char *storage, size_t storage_size,
+                            char **strings, size_t num_strings) {
+
+    char *string = storage;
+    for (size_t i = 0; i < num_strings; i++) {
+        strings[i] = string;
+        size_t string_length = STRING_LENGTH;
+        size_t random_char = (rand() % 255) + 1;
+        if (string + string_length < storage + storage_size) {
+            memset(string+1, random_char, string_length);
+            string[0] = string_length;
+            string += (string_length + 1);
+        } else {
+            printf("Strings buffer too small at i = %zd\n", i);
+            exit(1);
+        }
+    }
+
+    size_t storage_bytes_used = string - storage;
+    return storage_bytes_used;
+}
+
+
 size_t test_baseline(uint32_t *query_list, size_t num_queries,
                      char **strings, char *output) {
     size_t length = 0;
@@ -142,6 +165,30 @@ size_t test_prefetch(uint32_t *query_list, size_t num_queries,
     return length;
 }
 
+size_t test_prefetch_length(uint32_t *query_list, size_t num_queries,
+                            char **strings, size_t prefetch, char *output) {
+    char *orig = output;
+    for (size_t i = 0; i < num_queries; i++) {
+
+        if (i + 2*prefetch < num_queries) {
+            uint32_t prefetch_query = query_list[i + 2*prefetch];
+            __builtin_prefetch(&strings[prefetch_query]);
+        }
+
+        if (i + prefetch < num_queries) {
+            uint32_t prefetch_query = query_list[i + prefetch];
+            __builtin_prefetch(strings[prefetch_query]);
+        }
+
+        uint32_t query = query_list[i];
+        char *string = strings[query];
+        size_t length = *string;
+        memcpy(output, string, length);
+        output += length;
+    }
+    return output - orig;
+}
+
 
 size_t test_prefetch_l(uint32_t *query_list, size_t num_queries,
                      char **strings, size_t prefetch, char *output, uint8_t * lens) {
@@ -149,7 +196,7 @@ size_t test_prefetch_l(uint32_t *query_list, size_t num_queries,
     for (size_t i = 0; i < num_queries; i++) {
         if (i + prefetch < num_queries) {
             uint32_t prefetch_query = query_list[i + prefetch];
-            __builtin_prefetch(lens[prefetch_query]);
+            __builtin_prefetch(lens+ prefetch_query);
             __builtin_prefetch(strings[prefetch_query]);
         }
         uint32_t query = query_list[i];
@@ -273,8 +320,13 @@ int main(int argc, char **argv) {
     size_t storage_size = NUM_STRINGS * ALLOC_STRING_LEN;
     char *storage = malloc(storage_size);
     char **strings = malloc(NUM_STRINGS * sizeof(char *));
+    char *storagel = malloc(storage_size);
+    char **stringsl = malloc(NUM_STRINGS * sizeof(char *));
+
     uint8_t * strlens = malloc(NUM_STRINGS);
     init_storage_strings(storage, storage_size, strings, NUM_STRINGS);
+    init_storage_strings_length(storagel, storage_size, stringsl, NUM_STRINGS);
+
     for (size_t i = 0; i < NUM_STRINGS; i++) {
             char *string = strings[i];
             size_t l = strlen(string);// assume it fits in a byte
@@ -327,10 +379,19 @@ int main(int argc, char **argv) {
         size_t batch_size = batch_sizes[i];
         if (batch_size > NUM_QUERIES) batch_size = NUM_QUERIES;
         memset(test_out, 0, good_len);
+        printf(" Nate's fetched length %4zd ", batch_size);
+        TIMED_TEST(test_len = test_prefetch_length(query_list, NUM_QUERIES,  stringsl, batch_size, test_out));
+        verify_output(good_len, test_len, good_out, test_out);
+    }
+    for (size_t i = 0; i < COUNT(batch_sizes); i++) {
+        size_t batch_size = batch_sizes[i];
+        if (batch_size > NUM_QUERIES) batch_size = NUM_QUERIES;
+        memset(test_out, 0, good_len);
         printf(" Batch %4zd stpcpy", batch_size);
         TIMED_TEST(test_len = test_batch_stpcpy(query_list, NUM_QUERIES, batch_size, strings, test_out));
         verify_output(good_len, test_len, good_out, test_out);
     }
+
 
     for (size_t i = 0; i < COUNT(prefetch_sizes); i++) {
         size_t prefetch = prefetch_sizes[i];
