@@ -54,7 +54,7 @@ uint32_t round2 (uint32_t v) {
 }
 
 uint32_t fastround2 (uint32_t v) {
-  return 1 << (32 - __builtin_clz(v-1));
+    return 1 << (32 - __builtin_clz(v-1));
 }
 
 
@@ -78,6 +78,17 @@ uint32_t fastFairRandomInt(uint32_t size, uint32_t mask) {
     } while(candidate >= size ); // will be predicted as false
     return candidate;
 }
+uint32_t fastFairRandomInt2(uint32_t size, uint32_t mask) {
+    uint32_t rkey1 = fastrand()& mask;
+    //uint32_t rkey2 = fastrand()& mask;
+//    uint32_t rkey3 = fastrand()& mask;
+//    uint32_t rkey4 = fastrand()& mask;
+    uint32_t answer = rkey1;
+    //if(rkey1 >= size) answer = rkey2;
+//    if(rkey2 >= size) answer = rkey3;
+    //  if(rkey3 >= size) answer = rkey4;
+    return answer;
+}
 
 
 // Fisher-Yates shuffle, shuffling an array of integers
@@ -96,13 +107,20 @@ void  shuffle(int *storage, size_t size) {
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t m2 = fastround2 (size);
-    for (i=size; i>1; i--) {
-        if(2 * i < m2) m2 = m2 / 2;// for large values of i, this is not often taken
-        size_t nextpos = fastFairRandomInt(i,m2-1);
-        int tmp = storage[i-1];// likely in cache
-        int val = storage[nextpos]; // could be costly
-        storage[i - 1] = val;
-        storage[nextpos] = tmp; // you might have to read this store later
+    uint32_t x = 1;
+    i=size;
+    while(i>1) {
+        for (; 2*i>=m2; i--) {
+//        if(2 * i < m2) m2 = m2 / 2;// for large values of i, this is not often taken
+            size_t nextpos = fastFairRandomInt(i, m2-1);//x &(m2-1);
+            int tmp = storage[i-1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+            //    x = ((x * 1103515245) + 12345) & 0x7fffffff;
+//m2 = fastround2 (size);
+        }
+        m2 = m2 / 2;
     }
 }
 
