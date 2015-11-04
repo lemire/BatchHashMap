@@ -47,8 +47,8 @@ static int      left = -1;      // can *next++ this many times before reloading
 
 void seedMT(uint32_t seed)
 {
-    register uint32_t x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
-    register int    j;
+    uint32_t x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
+    int    j;
 
     for(left=0, *s++=x, j=MT_N; --j;
             *s++ = (x*=69069U) & 0xFFFFFFFFU);
@@ -57,8 +57,8 @@ void seedMT(uint32_t seed)
 
 uint32_t reloadMT(void)
 {
-    register uint32_t *p0=state, *p2=state+2, *pM=state+MT_M, s0, s1;
-    register int    j;
+    uint32_t *p0=state, *p2=state+2, *pM=state+MT_M, s0, s1;
+    int    j;
 
     if(left < -1)
         seedMT(4357U);
