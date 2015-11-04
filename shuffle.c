@@ -32,7 +32,6 @@
         (cycles) = ((uint64_t)cyc_high << 32) | cyc_low;        \
     } while(0)
 
-#ifdef USE_MT
 #define MT_N              (624)                 // length of state vector
 #define MT_M              (397)                 // a period parameter
 #define MT_K              (0x9908B0DFU)         // a magic constant
@@ -93,21 +92,23 @@ uint32_t randomMT(void)
     return(y ^ (y >> 18));
 }
 
-#endif
 static uint32_t x;
 
 uint32_t fastrand(void) {
+#ifdef USE_GENERIC 
+    x = ((x * 1103515245) + 12345) & 0x7fffffff;
+    return x;
+#else 
 #ifdef USE_MT
     return randomMT();
 #else
 #ifdef USE_RAND
     return rand();
 #else
-    x = ((x * 1103515245) + 12345) & 0x7fffffff;
-    return x;
-
+    return randomMT();
 #endif
 #endif
+#endif 
 }
 
 
@@ -139,18 +140,21 @@ uint32_t fairRandomInt(uint32_t size) {
 }
 
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
-    uint32_t candidate, rkey, budget;
-    // such a loop is necessary for the result to be fair
-    do {
-        budget = 31;// assume that this is what we have
+    uint32_t candidate, rkey;
+    int32_t  budget = 31;// assumption
         rkey = fastrand();
         candidate = rkey & mask;
-        while((candidate >= size)&&(budget>=bused)) {
+    // such a loop is necessary for the result to be fair
+        while(candidate >= size) {
+          budget -= bused;// we wasted bused bits
+          if(budget >= (int32_t) bused)  {
             rkey >>= bused;
-            candidate = rkey & mask;
+          } else {
+            rkey = fastrand();
+          }
+          candidate = rkey & mask;
         }
-    } while(candidate >= size ); // will be predicted as false
-    return candidate;
+   return candidate;
 }
 
 
@@ -165,20 +169,18 @@ void  shuffle(int *storage, size_t size) {
         storage[nextpos] = tmp; // you might have to read this store later
     }
 }
+static inline uint32_t fastlog2( uint32_t n) {
+  return 32 - __builtin_clz(n - 1);
+}
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t m2 = fastround2 (size);
-    uint32_t bused;
-    uint32_t c2 = m2;
-    while(c2>0) {
-        c2=c2/2;
-        bused++;
-    }
+    uint32_t bused = fastlog2(size);
     i=size;
     while(i>1) {
-        for (; 2*i>=m2; i--) {
+    for (; 2*i>=m2; i--) {
             size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
             int tmp = storage[i-1];// likely in cache
             int val = storage[nextpos]; // could be costly
@@ -421,13 +423,17 @@ int main( int argc, char **argv ) {
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
     uint64_t cycles_start, cycles_final;
+#ifdef USE_GENERIC
+    printf("Using some basic random number generator\n");
+#else
 #ifdef USE_MT
     printf("Using Mersenne Twister\n");
 #else
 #ifdef USE_RAND
     printf("Using rand\n");
 #else
-    printf("Using some basic random number generator\n");
+    printf("Using Mersenne Twister\n");
+#endif
 #endif
 #endif
 
@@ -437,9 +443,7 @@ int main( int argc, char **argv ) {
         array[i] = i;
     }
     x=1;
-#ifdef USE_MT
     seedMT(x);
-#endif
     printf("\n");
     RDTSC_START(cycles_start);
     shuffle( array, N );
