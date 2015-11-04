@@ -105,10 +105,8 @@ void  shuffle(int *storage, size_t size) {
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t m2 = fastround2 (size);
-    uint32_t bused = 0;
+    uint32_t bused;
     uint32_t c2 = m2;
-
-    uint32_t x = 1;
     while(c2>0) {
       c2=c2/2;
       bused++;
