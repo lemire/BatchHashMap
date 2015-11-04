@@ -39,7 +39,7 @@ static uint32_t x;
 uint32_t fastrand(void) {
 #ifdef USE_RAND
       return rand();
-#else 
+#else
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
 #endif
@@ -77,7 +77,7 @@ uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate, rkey, budget;
     // such a loop is necessary for the result to be fair
     do {
-        budget = 31;
+        budget = 31;// assume that this is what we have
         rkey = fastrand();
         candidate = rkey & mask;
         while((candidate >= size)&&(budget>=bused)) {
