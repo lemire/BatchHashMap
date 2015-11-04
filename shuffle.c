@@ -37,8 +37,12 @@
 static uint32_t x;
 
 uint32_t fastrand(void) {
+#ifdef USE_RAND
+      return rand();
+#else 
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
+#endif
 }
 
 
