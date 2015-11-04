@@ -32,16 +32,81 @@
         (cycles) = ((uint64_t)cyc_high << 32) | cyc_low;        \
     } while(0)
 
+#ifdef USE_MT
+#define MT_N              (624)                 // length of state vector
+#define MT_M              (397)                 // a period parameter
+#define MT_K              (0x9908B0DFU)         // a magic constant
+#define hiBit(u)       ((u) & 0x80000000U)   // mask all but highest   bit of u
+#define loBit(u)       ((u) & 0x00000001U)   // mask all but lowest    bit of u
+#define loBits(u)      ((u) & 0x7FFFFFFFU)   // mask     the highest   bit of u
+#define mixBits(u, v)  (hiBit(u)|loBits(v))  // move hi bit of u to hi bit of v
+
+static uint32_t   state[MT_N+1];     // state vector + 1 extra to not violate ANSI C
+static uint32_t   *next;          // next random value is computed from here
+static int      left = -1;      // can *next++ this many times before reloading
+
+void seedMT(uint32_t seed)
+{
+    register uint32_t x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
+    register int    j;
+
+    for(left=0, *s++=x, j=MT_N; --j;
+            *s++ = (x*=69069U) & 0xFFFFFFFFU);
+}
 
 
+uint32_t reloadMT(void)
+{
+    register uint32_t *p0=state, *p2=state+2, *pM=state+MT_M, s0, s1;
+    register int    j;
+
+    if(left < -1)
+        seedMT(4357U);
+
+    left=MT_N-1, next=state+1;
+
+    for(s0=state[0], s1=state[1], j=MT_N-MT_M+1; --j; s0=s1, s1=*p2++)
+        *p0++ = *pM++ ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? MT_K : 0U);
+
+    for(pM=state, j=MT_M; --j; s0=s1, s1=*p2++)
+        *p0++ = *pM++ ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? MT_K : 0U);
+
+    s1=state[0], *p0 = *pM ^ (mixBits(s0, s1) >> 1) ^ (loBit(s1) ? MT_K : 0U);
+    s1 ^= (s1 >> 11);
+    s1 ^= (s1 <<  7) & 0x9D2C5680U;
+    s1 ^= (s1 << 15) & 0xEFC60000U;
+    return(s1 ^ (s1 >> 18));
+}
+
+
+uint32_t randomMT(void)
+{
+    uint32_t y;
+
+    if(--left < 0)
+        return(reloadMT());
+
+    y  = *next++;
+    y ^= (y >> 11);
+    y ^= (y <<  7) & 0x9D2C5680U;
+    y ^= (y << 15) & 0xEFC60000U;
+    return(y ^ (y >> 18));
+}
+
+#endif
 static uint32_t x;
 
 uint32_t fastrand(void) {
+#ifdef USE_MT
+    return randomMT();
+#else
 #ifdef USE_RAND
-      return rand();
+    return rand();
 #else
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
+
+#endif
 #endif
 }
 
@@ -81,8 +146,8 @@ uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
         rkey = fastrand();
         candidate = rkey & mask;
         while((candidate >= size)&&(budget>=bused)) {
-          rkey >>= bused;
-          candidate = rkey & mask;
+            rkey >>= bused;
+            candidate = rkey & mask;
         }
     } while(candidate >= size ); // will be predicted as false
     return candidate;
@@ -110,8 +175,8 @@ void  fast_shuffle(int *storage, size_t size) {
 
     uint32_t x = 1;
     while(c2>0) {
-      c2=c2/2;
-      bused++;
+        c2=c2/2;
+        bused++;
     }
     i=size;
     while(i>1) {
@@ -358,11 +423,25 @@ int main( int argc, char **argv ) {
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
     uint64_t cycles_start, cycles_final;
+#ifdef USE_MT
+    printf("Using Mersenne Twister\n");
+#else
+#ifdef USE_RAND
+    printf("Using rand\n");
+#else
+    printf("Using some basic random number generator\n");
+#endif
+#endif
+
     printf("populating array %zu \n",N);
+
     for(i = 0; i < N; ++i) {
         array[i] = i;
     }
     x=1;
+#ifdef USE_MT
+    seedMT(x);
+#endif
     printf("\n");
     RDTSC_START(cycles_start);
     shuffle( array, N );
