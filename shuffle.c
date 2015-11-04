@@ -37,17 +37,35 @@
 uint32_t x;
 
 uint32_t fastrand(void) {
-      x = ((x * 1103515245) + 12345) & 0x7fffffff;
-      return x;
+    x = ((x * 1103515245) + 12345) & 0x7fffffff;
+    return x;
 }
 //#define USE_RAND
 
+
+uint32_t round2 (uint32_t v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+}
+
+uint32_t fastround2 (uint32_t v) {
+  return 1 << (32 - __builtin_clz(v-1));
+}
+
+
+
 // return and integer between 0 and size -1 inclusively, return -1 in case of trouble
-size_t fairRandomInt(size_t size) {
+uint32_t fairRandomInt(uint32_t size) {
     if(size > RAND_MAX) { // will be predicted as false
         return -1;
     }
-    size_t candidate, rkey;
+    uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
     do {
 #ifdef USE_RAND
@@ -56,11 +74,13 @@ size_t fairRandomInt(size_t size) {
         rkey = fastrand();
 #endif
         candidate = rkey % size;
-    } while(rkey + size  > RAND_MAX + candidate + 1 ); // will be predicted as false
+    } while(rkey - candidate  > RAND_MAX - size + 1 ); // will be predicted as false
     return candidate;
 }
 
-//Fisher-Yates shuffle, shuffling an array of integers
+
+
+// Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle(int *storage, size_t size) {
     size_t i;
     for (i=size; i>1; i--) {
@@ -72,17 +92,6 @@ void  shuffle(int *storage, size_t size) {
     }
 }
 
-uint32_t round2 (uint32_t v) {
-
-v--;
-v |= v >> 1;
-v |= v >> 2;
-v |= v >> 4;
-v |= v >> 8;
-v |= v >> 16;
-v++;
-return v;
-}
 
 // Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
 void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
@@ -92,23 +101,25 @@ void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
     size_t BLOCK_SIZE = 4 * buffersize;
     size_t * counter = malloc(NBR_BLOCK * sizeof(size_t));
     for(i = 0 ; i < NBR_BLOCK; ++i)
-      counter[i] = 0;
+        counter[i] = 0;
     int* buffer = malloc(BLOCK_SIZE * NBR_BLOCK * sizeof(int));
     for(i = 0; i < size; i++) {
-      int block = rand() &  ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
-      buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
-      counter[block]++;
-      if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
+        int block = rand() &  ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
+        buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
+        counter[block]++;
+        if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
     }
     l = 0;
     for(i = 0; i < NBR_BLOCK; i++) {
-      shuffle(buffer + BLOCK_SIZE * i, counter[i]);
-      memcpy(storage + l,buffer + BLOCK_SIZE * i,counter[i]*sizeof(int));
-      l += counter[i];
+        shuffle(buffer + BLOCK_SIZE * i, counter[i]);
+        memcpy(storage + l,buffer + BLOCK_SIZE * i,counter[i]*sizeof(int));
+        l += counter[i];
     }
     free(buffer);
     free(counter);
 }
+
+
 
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle_prefetch2(int *storage, size_t size) {
@@ -164,6 +175,43 @@ void  shuffle_prefetch4(int *storage, size_t size) {
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
             storage[nextpos] = tmp; // you might have to read this store later
+        }
+    }
+    for (; i>1; i--) {
+        size_t nextpos = fairRandomInt(i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
+
+//Fisher-Yates shuffle, shuffling an array of integers
+void  shuffle4(int *storage, size_t size) {
+    size_t i,j;
+    i = size;
+    if(size > 4) {
+        size_t nextposs[4];
+        int vals[4];
+
+        for (; i>4; i-=4) {
+            nextposs[0] = fairRandomInt(i);
+            nextposs[1] = fairRandomInt(i - 1);
+            nextposs[2] = fairRandomInt(i - 2);
+            nextposs[3] = fairRandomInt(i - 3);
+            vals[0] = storage[nextposs[0]];
+            vals[1] = storage[nextposs[1]];
+            vals[2] = storage[nextposs[2]];
+            vals[3] = storage[nextposs[3]];
+            storage[nextposs[0]] = storage[i - 1];
+            storage[nextposs[1]] = storage[i - 2];
+            storage[nextposs[2]] = storage[i - 3];
+            storage[nextposs[3]] = storage[i - 4];
+            storage[i - 1] = vals[0];
+            storage[i - 2] = vals[1];
+            storage[i - 3] = vals[2];
+            storage[i - 4] = vals[3];
         }
     }
     for (; i>1; i--) {
@@ -249,19 +297,19 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size, size_t buffersize) {
     size_t BLOCK_SIZE = 4 * buffersize;
     size_t * counter = malloc(NBR_BLOCK * sizeof(size_t));
     for(i = 0 ; i < NBR_BLOCK; ++i)
-      counter[i] = 0;
+        counter[i] = 0;
     int* buffer = malloc(BLOCK_SIZE * NBR_BLOCK * sizeof(int));
     for(i = 0; i < size; i++) {
-      int block = rand() & ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
-      buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
-      counter[block]++;
-      if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
+        int block = rand() & ( NBR_BLOCK - 1) ; // NBR_BLOCK is a power of two
+        buffer[BLOCK_SIZE * block + counter[block]] = storage[i];
+        counter[block]++;
+        if(counter[block]>=BLOCK_SIZE) printf("insufficient mem\n");
     }
     l = 0;
     for(i = 0; i < NBR_BLOCK; i++) {
-      shuffle_prefetch16(buffer + BLOCK_SIZE * i, counter[i]);
-      memcpy(storage + l,buffer + BLOCK_SIZE * i,counter[i]*sizeof(int));
-      l += counter[i];
+        shuffle_prefetch16(buffer + BLOCK_SIZE * i, counter[i]);
+        memcpy(storage + l,buffer + BLOCK_SIZE * i,counter[i]*sizeof(int));
+        l += counter[i];
     }
     free(buffer);
     free(counter);
@@ -289,6 +337,17 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+
+
+    RDTSC_START(cycles_start);
+    shuffle4( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("shuffle4 cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
     shuffle_sanders( array, N, 24000 );
     bogus += array[0];
