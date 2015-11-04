@@ -69,12 +69,17 @@ uint32_t fairRandomInt(uint32_t size) {
     return candidate;
 }
 
-uint32_t fastFairRandomInt(uint32_t size, uint32_t mask) {
-    uint32_t candidate, rkey;
+uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
+    uint32_t candidate, rkey, budget;
     // such a loop is necessary for the result to be fair
     do {
+        budget = 31;
         rkey = fastrand();
         candidate = rkey & mask;
+        while((candidate >= size)&&(budget>=bused)) {
+          rkey >>= bused;
+          candidate = rkey & mask;
+        }
     } while(candidate >= size ); // will be predicted as false
     return candidate;
 }
@@ -96,17 +101,25 @@ void  shuffle(int *storage, size_t size) {
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t m2 = fastround2 (size);
+    uint32_t bused = 0;
+    uint32_t c2 = m2;
+
     uint32_t x = 1;
+    while(c2>0) {
+      c2=c2/2;
+      bused++;
+    }
     i=size;
     while(i>1) {
         for (; 2*i>=m2; i--) {
-            size_t nextpos = fastFairRandomInt(i, m2-1);//x &(m2-1);
+            size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
             int tmp = storage[i-1];// likely in cache
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
             storage[nextpos] = tmp; // you might have to read this store later
         }
         m2 = m2 / 2;
+        bused--;
     }
 }
 
