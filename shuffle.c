@@ -34,13 +34,12 @@
 
 
 
-uint32_t x;
+static uint32_t x;
 
 uint32_t fastrand(void) {
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
 }
-//#define USE_RAND
 
 
 uint32_t round2 (uint32_t v) {
@@ -60,24 +59,25 @@ uint32_t fastround2 (uint32_t v) {
 
 
 
-// return and integer between 0 and size -1 inclusively, return -1 in case of trouble
 uint32_t fairRandomInt(uint32_t size) {
-    if(size > RAND_MAX) { // will be predicted as false
-        return -1;
-    }
     uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
     do {
-#ifdef USE_RAND
-        rkey = rand();// is rand fair? hope so...
-#else
         rkey = fastrand();
-#endif
         candidate = rkey % size;
     } while(rkey - candidate  > RAND_MAX - size + 1 ); // will be predicted as false
     return candidate;
 }
 
+uint32_t fastFairRandomInt(uint32_t size, uint32_t mask) {
+    uint32_t candidate, rkey;
+    // such a loop is necessary for the result to be fair
+    do {
+        rkey = fastrand();
+        candidate = rkey & mask;
+    } while(candidate >= size ); // will be predicted as false
+    return candidate;
+}
 
 
 // Fisher-Yates shuffle, shuffling an array of integers
@@ -85,6 +85,20 @@ void  shuffle(int *storage, size_t size) {
     size_t i;
     for (i=size; i>1; i--) {
         size_t nextpos = fairRandomInt(i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
+// Fisher-Yates shuffle, shuffling an array of integers
+void  fast_shuffle(int *storage, size_t size) {
+    size_t i;
+    uint32_t m2 = fastround2 (size);
+    for (i=size; i>1; i--) {
+        if(2 * i < m2) m2 = m2 / 2;// for large values of i, this is not often taken
+        size_t nextpos = fastFairRandomInt(i,m2-1);
         int tmp = storage[i-1];// likely in cache
         int val = storage[nextpos]; // could be costly
         storage[i - 1] = val;
@@ -338,6 +352,15 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
 
+
+    RDTSC_START(cycles_start);
+    fast_shuffle( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
