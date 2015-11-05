@@ -178,7 +178,7 @@ void  fast_shuffle(int *storage, size_t size) {
     uint32_t m2 = 1 << (32- __builtin_clz(size-1));
     i=size;
     while(i>1) {
-        for (; 2*i>=m2; i--) {
+        for (; 2*i>m2; i--) {
             size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
             int tmp = storage[i - 1];// likely in cache
             int val = storage[nextpos]; // could be costly
