@@ -95,10 +95,10 @@ uint32_t randomMT(void)
 static uint32_t x;
 
 uint32_t fastrand(void) {
-#ifdef USE_GENERIC 
+#ifdef USE_GENERIC
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
-#else 
+#else
 #ifdef USE_MT
     return randomMT();
 #else
@@ -108,7 +108,7 @@ uint32_t fastrand(void) {
     return randomMT();
 #endif
 #endif
-#endif 
+#endif
 }
 
 
@@ -121,10 +121,6 @@ uint32_t round2 (uint32_t v) {
     v |= v >> 16;
     v++;
     return v;
-}
-
-uint32_t fastround2 (uint32_t v) {
-    return 1 << (32 - __builtin_clz(v-1));
 }
 
 
@@ -142,19 +138,20 @@ uint32_t fairRandomInt(uint32_t size) {
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate, rkey;
     int32_t  budget = 31;// assumption
-        rkey = fastrand();
-        candidate = rkey & mask;
+    rkey = fastrand();
+    candidate = rkey & mask;
     // such a loop is necessary for the result to be fair
-        while(candidate >= size) {
-          budget -= bused;// we wasted bused bits
-          if(budget >= (int32_t) bused)  {
+    while(candidate >= size) {
+        budget -= bused;// we wasted bused bits
+        if(budget >= (int32_t) bused)  {
             rkey >>= bused;
-          } else {
+        } else {
             rkey = fastrand();
-          }
-          candidate = rkey & mask;
+            budget = 31;// assumption
         }
-   return candidate;
+        candidate = rkey & mask;
+    }
+    return candidate;
 }
 
 
@@ -169,25 +166,26 @@ void  shuffle(int *storage, size_t size) {
         storage[nextpos] = tmp; // you might have to read this store later
     }
 }
-static inline uint32_t fastlog2( uint32_t n) {
-  return 32 - __builtin_clz(n - 1);
+
+uint32_t fastround2 (uint32_t v) {
+    return 1 << (32 - __builtin_clz(v-1));
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
-    uint32_t m2 = fastround2 (size);
-    uint32_t bused = fastlog2(size);
+    uint32_t bused = 32 - __builtin_clz(size);
+    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
     i=size;
     while(i>1) {
-    for (; 2*i>=m2; i--) {
+        for (; 2*i>=m2; i--) {
             size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
-            int tmp = storage[i-1];// likely in cache
+            int tmp = storage[i - 1];// likely in cache
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
             storage[nextpos] = tmp; // you might have to read this store later
         }
-        m2 = m2 / 2;
+        m2 = m2 >> 1;
         bused--;
     }
 }
