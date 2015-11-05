@@ -153,7 +153,13 @@ uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     }
     return candidate;
 }
-
+// Fisher-Yates shuffle, shuffling an array of integers
+void  justrandom(size_t size) {
+    size_t i;
+    for (i=size; i>1; i--) {
+        size_t nextpos = fairRandomInt(i);
+    }
+}
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle(int *storage, size_t size) {
@@ -443,6 +449,15 @@ int main( int argc, char **argv ) {
     x=1;
     seedMT(x);
     printf("\n");
+    RDTSC_START(cycles_start);
+    justrandom( N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("just random cycles per key  %.2f \n", cycles_per_search1);
+
     RDTSC_START(cycles_start);
     shuffle( array, N );
     bogus += array[0];
