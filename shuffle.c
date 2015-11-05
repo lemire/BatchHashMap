@@ -8,6 +8,9 @@
 #include <stdint.h>
 #include <immintrin.h>
 
+/********
+* Next part is mersenne Twister
+*********/
 
 #define RDTSC_START(cycles)                                     \
     do {                                                        \
@@ -95,27 +98,6 @@ uint32_t randomMT(void)
 
 static uint32_t x;
 
-uint32_t fastrand(void) {
-#ifdef USE_GENERIC
-    x = ((x * 1103515245) + 12345) & 0x7fffffff;
-    return x;
-#else
-#ifdef USE_MT
-    return randomMT();
-#else
-#ifdef USE_RAND
-    return rand();
-#else
-    return randomMT();
-#endif
-#endif
-#endif
-}
-
-/**************
-* next bit is from
-* https://github.com/axel-bacher/mergeshuffle/
-****/
 // get a random 64-bit register
 // Uses the "rdrand" instruction giving hardware randomness
 // documentation: https://software.intel.com/en-us/articles/intel-digital-random-number-generator-drng-software-implementation-guide
@@ -124,6 +106,27 @@ static inline unsigned long rand64() {
     __asm__ __volatile__("0:\n\t" "rdrand %0\n\t" "jnc 0b": "=r" (r) :: "cc");
     return r;
 }
+
+uint32_t fastrand(void) {
+#ifdef USE_GENERIC
+    x = ((x * 1103515245) + 12345) & 0x7fffffff;
+    return x;
+#elif USE_MT
+    return randomMT();
+#elif USE_RAND
+    return rand();
+#elif USE_HARDWARE
+    return rand64();// 64-bit...
+#else
+    return randomMT();
+#endif
+}
+
+/**************
+* next bit is from
+* https://github.com/axel-bacher/mergeshuffle/
+****/
+
 
 struct random {
     unsigned long x;
@@ -586,16 +589,14 @@ int main( int argc, char **argv ) {
     uint64_t cycles_start, cycles_final;
 #ifdef USE_GENERIC
     printf("Using some basic random number generator\n");
-#else
-#ifdef USE_MT
+#elif USE_MT
     printf("Using Mersenne Twister\n");
-#else
-#ifdef USE_RAND
+#elif USE_RAND
     printf("Using rand\n");
+#elif USE_HARDWARE
+    printf("Using hardware\n");
 #else
     printf("Using Mersenne Twister\n");
-#endif
-#endif
 #endif
 
     printf("populating array %zu \n",N);
