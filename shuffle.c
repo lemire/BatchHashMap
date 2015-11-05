@@ -107,6 +107,7 @@ static inline unsigned long rand64() {
     return r;
 }
 
+
 uint32_t fastrand(void) {
 #ifdef USE_GENERIC
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
@@ -116,7 +117,9 @@ uint32_t fastrand(void) {
 #elif USE_RAND
     return rand();
 #elif USE_HARDWARE
-    return rand64();// 64-bit...
+    uint32_t answer;
+    _rdrand32_step(&answer);
+    return answer;
 #else
     return randomMT();
 #endif
