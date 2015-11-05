@@ -107,6 +107,12 @@ static inline unsigned long rand64() {
     return r;
 }
 
+static inline unsigned int rand32() {
+    unsigned int r;
+    __asm__ __volatile__("0:\n\t" "rdrand %0\n\t" "jnc 0b": "=r" (r) :: "cc");
+    return r;
+}
+
 
 uint32_t fastrand(void) {
 #ifdef USE_GENERIC
@@ -117,9 +123,7 @@ uint32_t fastrand(void) {
 #elif USE_RAND
     return rand();
 #elif USE_HARDWARE
-    uint32_t answer;
-    _rdrand32_step(&answer);
-    return answer;
+    return rand32();
 #else
     return randomMT();
 #endif
@@ -262,7 +266,6 @@ uint32_t round2 (uint32_t v) {
 }
 
 
-
 uint32_t fairRandomInt(uint32_t size) {
     uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
@@ -272,6 +275,47 @@ uint32_t fairRandomInt(uint32_t size) {
     } while(rkey - candidate  > RAND_MAX - size + 1 ); // will be predicted as false
     return candidate;
 }
+
+#ifdef USE_HARDWARE
+
+uint64_t hardrandom;
+int hardbudget;
+
+uint32_t getbits(uint32_t mask, uint32_t bused) {
+    if(hardbudget  >= bused) {
+        //  printf("consuming bused = %d from budget = %d\n",bused,hardbudget);
+        uint32_t answer = hardrandom & mask;
+        hardrandom >>= bused;
+        hardbudget -= bused;
+        //if(hardbudget < 0) abort();
+
+        return answer;
+    } else {
+        //    printf("==== consuming bused = %d from budget = %d busted! \n",bused,hardbudget);
+        // we use the bits we have
+        uint32_t answer = hardrandom;
+        int consumed = 64 - hardbudget;
+        hardrandom = rand64();
+        answer |= (hardrandom << consumed);
+        answer &= mask;
+        int lastbit = bused - consumed;
+        hardbudget = 64 - lastbit;
+        hardrandom >>= lastbit;
+        //if(hardbudget < 0) abort();
+        return answer;
+    }
+}
+
+uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
+    uint32_t candidate = getbits(mask,bused);
+    // such a loop is necessary for the result to be fair
+    while(candidate >= size) {
+        candidate = getbits(mask,bused);
+    }
+    return candidate;
+}
+
+#else
 
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate, rkey;
@@ -291,7 +335,7 @@ uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     }
     return candidate;
 }
-
+#endif
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  justrandom(size_t size) {
@@ -582,9 +626,7 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size, size_t buffersize) {
     free(counter);
 }
 
-
-int main( int argc, char **argv ) {
-    size_t N =  16777216;
+int demo(size_t N) {
     int bogus = 0;
     size_t i;
     float cycles_per_search1;
@@ -598,6 +640,7 @@ int main( int argc, char **argv ) {
     printf("Using rand\n");
 #elif USE_HARDWARE
     printf("Using hardware\n");
+    hardbudget =0;
 #else
     printf("Using Mersenne Twister\n");
 #endif
@@ -610,32 +653,6 @@ int main( int argc, char **argv ) {
     x=1;
     seedMT(x);
     printf("\n");
-    RDTSC_START(cycles_start);
-    justrandom( N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random cycles per key  %.2f \n", cycles_per_search1);
-
-    RDTSC_START(cycles_start);
-    justrandomwithdiv( N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random with div cycles per key  %.2f \n", cycles_per_search1);
-
-    RDTSC_START(cycles_start);
-    justrandomwithoutdiv( N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random without div cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
@@ -647,6 +664,14 @@ int main( int argc, char **argv ) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
 
+    RDTSC_START(cycles_start);
+    fast_shuffle( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
     fisher_yates((unsigned int *) array, N );
@@ -668,14 +693,6 @@ int main( int argc, char **argv ) {
     printf("from https://github.com/axel-bacher/mergeshuffle/ mergeshuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
-    RDTSC_START(cycles_start);
-    fast_shuffle( array, N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
@@ -737,6 +754,42 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("sanders with prefetch 16 shuffle cycles per key  %.2f  \n", cycles_per_search1);
+    free(array);
+    RDTSC_START(cycles_start);
+    justrandom( N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
 
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("just random cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    justrandomwithdiv( N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("just random with div cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    justrandomwithoutdiv( N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("just random without div cycles per key  %.2f \n", cycles_per_search1);
+
+    return bogus;
+
+}
+int main( int argc, char **argv ) {
+    int bogus = 0;
+    for(size_t N = 4096; N < 2147483648; N*=8) {
+        bogus += demo(N);
+        printf("\n");
+    }
     return bogus;
 }
