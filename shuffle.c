@@ -1,4 +1,5 @@
 // TODO: see http://arxiv.org/pdf/1508.03167.pdf
+// https://github.com/axel-bacher/mergeshuffle
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
@@ -111,6 +112,137 @@ uint32_t fastrand(void) {
 #endif
 }
 
+/**************
+* next bit is from
+* https://github.com/axel-bacher/mergeshuffle/
+****/
+// get a random 64-bit register
+// Uses the "rdrand" instruction giving hardware randomness
+// documentation: https://software.intel.com/en-us/articles/intel-digital-random-number-generator-drng-software-implementation-guide
+static inline unsigned long rand64() {
+    unsigned long r;
+    __asm__ __volatile__("0:\n\t" "rdrand %0\n\t" "jnc 0b": "=r" (r) :: "cc");
+    return r;
+}
+
+struct random {
+    unsigned long x;
+    int c;
+};
+
+// mark as used the first b bits of r->x
+// they should be shifted out after use (r->x >>= b)
+
+static inline void consume_bits(struct random *r, int b) {
+#ifdef COUNT
+    count += b;
+#endif
+
+    r->c -= b;
+    if(r->c < 0) {
+        r->x = rand64();
+        r->c = 64 - b;
+    }
+}
+
+static inline unsigned long random_bits(struct random *r, unsigned int i) {
+    consume_bits(r, i);
+    int y = r->x & ((1UL << i) - 1);
+    r->x >>= i;
+    return y;
+}
+
+static inline int flip(struct random *r) {
+    return random_bits(r, 1);
+}
+
+static inline unsigned long random_int(struct random *r, unsigned long n) {
+    unsigned long v = 1;
+    unsigned long d = 0;
+    while(1) {
+        d += d + flip(r);
+        v += v;
+
+        if(v >= n) {
+            if(d < n) return d;
+            v -= n;
+            d -= n;
+        }
+    }
+}
+
+static inline void swap(unsigned int *a, unsigned int *b) {
+    unsigned int x = *a;
+    unsigned int y = *b;
+    *a = y;
+    *b = x;
+}
+
+void fisher_yates(unsigned int *t, unsigned int n) {
+    struct random r = {0, 0};
+
+    for(unsigned int i = 0; i < n; i ++) {
+        unsigned int j = random_int(&r, i + 1);
+        swap(t + i, t + j);
+    }
+}
+
+
+void merge(unsigned int *t, unsigned int m, unsigned int n) {
+    unsigned int *u = t;
+    unsigned int *v = t + m;
+    unsigned int *w = t + n;
+
+    struct random r = {0, 0};
+
+    // take elements from both halves until one is exhausted
+
+    while(1) {
+        if(flip(&r)) {
+            if(v == w) break;
+            swap(u, v ++);
+        } else if(u == v) break;
+        u ++;
+    }
+
+    // finish using Fisher-Yates
+
+    while(u < w) {
+        unsigned int i = random_int(&r, u - t + 1);
+        swap(t + i, u ++);
+    }
+}
+unsigned long cutoff = 0x10000;
+
+void mergeshuffle(unsigned int *t, unsigned int n) {
+    unsigned int c = 0;
+    while((n >> c) > cutoff) c ++;
+    unsigned int q = 1 << c;
+    unsigned long nn = n;
+
+//    #pragma omp parallel for
+    for(unsigned int i = 0; i < q; i ++) {
+        unsigned long j = nn * i >> c;
+        unsigned long k = nn * (i+1) >> c;
+        fisher_yates(t + j, k - j);
+    }
+
+    for(unsigned int p = 1; p < q; p += p) {
+        //      #pragma omp parallel for
+        for(unsigned int i = 0; i < q; i += 2*p) {
+            unsigned long j = nn * i >> c;
+            unsigned long k = nn * (i + p) >> c;
+            unsigned long l = nn * (i + 2*p) >> c;
+            merge(t + j, k - j, l - j);
+        }
+    }
+}
+
+/****
+* End of import from
+* https://github.com/axel-bacher/mergeshuffle/
+**************/
+
 
 uint32_t round2 (uint32_t v) {
     v--;
@@ -174,17 +306,17 @@ void  justrandomwithdiv(size_t size) {
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  justrandomwithoutdiv(size_t size) {
-  size_t i;
-  uint32_t bused = 32 - __builtin_clz(size);
-  uint32_t m2 = 1 << (32- __builtin_clz(size-1));
-  i=size;
-  while(i>1) {
-      for (; 2*i>m2; i--) {
-          size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
-      }
-      m2 = m2 >> 1;
-      bused--;
-  }
+    size_t i;
+    uint32_t bused = 32 - __builtin_clz(size);
+    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
+    i=size;
+    while(i>1) {
+        for (; 2*i>m2; i--) {
+            size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
+        }
+        m2 = m2 >> 1;
+        bused--;
+    }
 }
 // Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle(int *storage, size_t size) {
@@ -510,6 +642,26 @@ int main( int argc, char **argv ) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    fisher_yates((unsigned int *) array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("from https://github.com/axel-bacher/mergeshuffle/ shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    mergeshuffle((unsigned int *)  array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("from https://github.com/axel-bacher/mergeshuffle/ mergeshuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
