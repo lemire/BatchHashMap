@@ -183,8 +183,8 @@ static inline void swap(unsigned int *a, unsigned int *b) {
 
 void fisher_yates(unsigned int *t, unsigned int n) {
     struct random r = {0, 0};
-
-    for(unsigned int i = 0; i < n; i ++) {
+    unsigned int i;
+    for(i = 0; i < n; i ++) {
         unsigned int j = random_int(&r, i + 1);
         swap(t + i, t + j);
     }
@@ -222,17 +222,17 @@ void mergeshuffle(unsigned int *t, unsigned int n) {
     while((n >> c) > cutoff) c ++;
     unsigned int q = 1 << c;
     unsigned long nn = n;
-
+    unsigned int i,p;
 //    #pragma omp parallel for
-    for(unsigned int i = 0; i < q; i ++) {
+    for(i = 0; i < q; i ++) {
         unsigned long j = nn * i >> c;
         unsigned long k = nn * (i+1) >> c;
         fisher_yates(t + j, k - j);
     }
 
-    for(unsigned int p = 1; p < q; p += p) {
+    for(p = 1; p < q; p += p) {
         //      #pragma omp parallel for
-        for(unsigned int i = 0; i < q; i += 2*p) {
+        for(i = 0; i < q; i += 2*p) {
             unsigned long j = nn * i >> c;
             unsigned long k = nn * (i + p) >> c;
             unsigned long l = nn * (i + 2*p) >> c;
