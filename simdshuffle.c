@@ -347,6 +347,9 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   */
   uint32_t boundary = 0;
   uint32_t i;
+  uint64_t  randbuf = fastrand() | ((uint64_t) fastrand());
+  int randbudget = 8;
+
   for(i = 0; i < length; ) {
     if((boundary + 8 > i) || (i + 8 >= length)) {// will be predicted false
       /* can't vectorize, not enough space, do it the slow way */
@@ -362,7 +365,14 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
       * it would be ideal to go 32 or 64 ints at a time. The main difficulty
       * is the shuffling.
       */
-      uint8_t randbyte = getRandomByte();
+      uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+      if(randbudget == 1) {
+        randbudget = 8;
+        randbuf = fastrand() | ((uint64_t) fastrand());
+      } else {
+        randbudget --;
+        randbuf >>=8;
+      }
       __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
       uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
       __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
