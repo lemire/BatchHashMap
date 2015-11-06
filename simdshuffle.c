@@ -350,10 +350,10 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   */
   uint32_t boundary = 0;
   uint32_t i;
-  uint64_t  randbuf = fastrand() | ((uint64_t) fastrand());
+  uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
   int randbudget = 8;
 
-  uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand());
+  uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
   int randbitbudget = 64;
 
   for(i = 0; i < length; ) {
@@ -361,7 +361,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
       /* can't vectorize, not enough space, do it the slow way */
       int coin = randbitbuf & 1;//getRandomBit();
       if(randbitbudget == 1) {
-        randbitbuf = fastrand() | ((uint64_t) fastrand());
+        randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
         randbitbudget = 64;
       } else {
         randbitbudget--;
@@ -381,7 +381,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
       uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
       if(randbudget == 1) {
         randbudget = 8;
-        randbuf = fastrand() | ((uint64_t) fastrand());
+        randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
       } else {
         randbudget --;
         randbuf >>=8;
