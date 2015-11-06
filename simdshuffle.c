@@ -73,7 +73,7 @@ uint32_t inplace_onepass_shuffle(uint32_t * array, size_t length) {
 }
 
 
-int shufflemask [256*8] ={
+int shufflemask [256*8]  __attribute__((aligned(0x100)))  ={
 0,1,2,3,4,5,6,7,/* 0*/
 0,   1,2,3,4,5,6,7,/* 1*/
 1,   0,2,3,4,5,6,7,/* 2*/
@@ -332,6 +332,9 @@ int shufflemask [256*8] ={
 0,1,2,3,4,5,6,7,   /* 255*/
 };
 
+
+int counts[256] = {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8};
+
 uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   /* we run through the data. Anything in [0,boundary) is black,
   * anything in [boundary, i) is white
@@ -360,20 +363,22 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
       * is the shuffling.
       */
       uint8_t randbyte = getRandomByte();
-      __m256i shufm = _mm256_lddqu_si256((__m256i *)(shufflemask + 8 * randbyte));
+      __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
       uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
       __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
       __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
       // we shuffle allgrey so that the first part is black and the second part is white
       __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
-      _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
       _mm256_storeu_si256 ((__m256i *)(array + boundary), blackthenwhite);
+      _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
       boundary += cnt; // might be faster with table look-up?
       i += 8;
     }
   }
   return boundary ;
 }
+
+
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate, rkey;
     int32_t  budget = 32;// assumption
