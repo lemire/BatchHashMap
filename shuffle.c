@@ -785,8 +785,38 @@ int demo(size_t N) {
     return bogus;
 
 }
+
+
+
+int testfairness(uint32_t maxsize) {
+    printf("checking your RNG.\n");
+    for(uint32_t size = 2; size <maxsize; ++size) {
+        uint32_t i;
+        uint32_t m2 = 1 << (32- __builtin_clz(size-1));
+        double ratio = (double) size / m2;
+        uint32_t mask = m2 -1;
+        uint32_t count = 10000;
+        double predicted = (1-ratio) * count;
+        uint32_t missed = 0;
+        for(i = 0 ; i < count; ++i ) {
+            if((fastrand() & mask) >= size) ++missed;
+        }
+        if((double)missed > 1.1 * predicted + 20) {
+            printf("size = %d missed = %d predicted = %f\n",size, missed, predicted);
+            printf("poor RNG \n");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+
 int main( int argc, char **argv ) {
     int bogus = 0;
+    int r = testfairness(1000);
+    if(r == 0)
+        printf ("good RNG\n");
+    else return r;
     for(size_t N = 4096; N < 2147483648; N*=8) {
         bogus += demo(N);
         printf("\n");
