@@ -474,6 +474,7 @@ int demo(size_t N) {
 #endif
 
     printf("populating array %zu \n",N);
+    printf("log(N) = %d \n",(33 - __builtin_clz(N-1)));
 
     for(i = 0; i < N; ++i) {
         array[i] = i;
