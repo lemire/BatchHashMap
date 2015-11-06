@@ -91,3 +91,31 @@ uint32_t fastrand(void) {
     return randomMT();
 #endif
 }
+
+#ifdef USE_HARDWARE
+
+uint64_t hardrandom;
+int hardbudget;
+
+uint32_t getbits(uint32_t mask, uint32_t bused) {
+    if(hardbudget  >= bused) {
+        uint32_t answer = hardrandom & mask;
+        hardrandom >>= bused;
+        hardbudget -= bused;
+
+        return answer;
+    } else {
+        // we use the bits we have
+        uint32_t answer = hardrandom;
+        int consumed = 64 - hardbudget;
+        hardrandom = rand64();
+        answer |= (hardrandom << consumed);
+        answer &= mask;
+        int lastbit = bused - consumed;
+        hardbudget = 64 - lastbit;
+        hardrandom >>= lastbit;
+        //if(hardbudget < 0) abort();
+        return answer;
+    }
+}
+#endif 

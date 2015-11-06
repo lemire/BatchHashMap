@@ -188,35 +188,6 @@ uint32_t fairRandomInt(uint32_t size) {
 }
 
 #ifdef USE_HARDWARE
-
-uint64_t hardrandom;
-int hardbudget;
-
-uint32_t getbits(uint32_t mask, uint32_t bused) {
-    if(hardbudget  >= bused) {
-        //  printf("consuming bused = %d from budget = %d\n",bused,hardbudget);
-        uint32_t answer = hardrandom & mask;
-        hardrandom >>= bused;
-        hardbudget -= bused;
-        //if(hardbudget < 0) abort();
-
-        return answer;
-    } else {
-        //    printf("==== consuming bused = %d from budget = %d busted! \n",bused,hardbudget);
-        // we use the bits we have
-        uint32_t answer = hardrandom;
-        int consumed = 64 - hardbudget;
-        hardrandom = rand64();
-        answer |= (hardrandom << consumed);
-        answer &= mask;
-        int lastbit = bused - consumed;
-        hardbudget = 64 - lastbit;
-        hardrandom >>= lastbit;
-        //if(hardbudget < 0) abort();
-        return answer;
-    }
-}
-
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate = getbits(mask,bused);
     // such a loop is necessary for the result to be fair
