@@ -350,10 +350,20 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   uint64_t  randbuf = fastrand() | ((uint64_t) fastrand());
   int randbudget = 8;
 
+  uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand());
+  int randbitbudget = 64;
+
   for(i = 0; i < length; ) {
     if((boundary + 8 > i) || (i + 8 >= length)) {// will be predicted false
       /* can't vectorize, not enough space, do it the slow way */
-      int coin = getRandomBit();
+      int coin = randbitbuf & 1;//getRandomBit();
+      if(randbitbudget == 1) {
+        randbitbuf = fastrand() | ((uint64_t) fastrand());
+        randbitbudget = 64;
+      } else {
+        randbitbudget--;
+        randbitbuf >>=1;
+      }
       if(coin) {
         swap(array, i,boundary);
         boundary++;
