@@ -8,9 +8,6 @@
 #include <stdint.h>
 #include <immintrin.h>
 
-/********
-* Next part is mersenne Twister
-*********/
 
 #define RDTSC_START(cycles)                                     \
     do {                                                        \
@@ -35,6 +32,11 @@
                      :: "%rax", "%rbx", "%rcx", "%rdx");        \
         (cycles) = ((uint64_t)cyc_high << 32) | cyc_low;        \
     } while(0)
+
+
+/********
+* Next part is mersenne Twister
+*********/
 
 #define MT_N              (624)                 // length of state vector
 #define MT_M              (397)                 // a period parameter
