@@ -1,3 +1,6 @@
+/*//////////
+// TODO: use SIMD Mersenne Twister.
+/////////////*/
 #include <x86intrin.h>
 
 #include <stdio.h>
@@ -596,7 +599,7 @@ int demo(size_t N) {
 int main() {
   int bogus = 0;
   size_t N;
-  for(N = 400000; N <400000000; N*=10) {
+  for(N = 4096; N < 2147483648; N*=8) {
     demo(N);
     printf("\n\n");
   }
