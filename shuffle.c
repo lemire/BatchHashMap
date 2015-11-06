@@ -668,7 +668,6 @@ int demo(size_t N) {
     free(array);
     RDTSC_START(cycles_start);
     justrandom( N );
-    bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
@@ -677,7 +676,6 @@ int demo(size_t N) {
 
     RDTSC_START(cycles_start);
     justrandomwithdiv( N );
-    bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
@@ -686,7 +684,6 @@ int demo(size_t N) {
 
     RDTSC_START(cycles_start);
     justrandomwithoutdiv( N );
-    bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
@@ -701,7 +698,8 @@ int demo(size_t N) {
 
 int testfairness(uint32_t maxsize) {
     printf("checking your RNG.\n");
-    for(uint32_t size = 2; size <maxsize; ++size) {
+    uint32_t size;
+    for(size = 2; size <maxsize; ++size) {
         uint32_t i;
         uint32_t m2 = 1 << (32- __builtin_clz(size-1));
         double ratio = (double) size / m2;
@@ -724,11 +722,12 @@ int testfairness(uint32_t maxsize) {
 
 int main( int argc, char **argv ) {
     int bogus = 0;
+    size_t N;
     int r = testfairness(1000);
     if(r == 0)
         printf ("good RNG\n");
     else return r;
-    for(size_t N = 4096; N < 2147483648; N*=8) {
+    for(N = 4096; N < 2147483648; N*=8) {
         bogus += demo(N);
         printf("\n");
     }
