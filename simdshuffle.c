@@ -527,6 +527,47 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 65536 cycles per key  %.2f \n", cycles_per_search1);
 
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N , 131072);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 131072 cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N , 262144);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 262144 cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N , 524288);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 524288 cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N , 1048576);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 1048576 cycles per key  %.2f \n", cycles_per_search1);
+
+
+
+
     return bogus;
 
 }
