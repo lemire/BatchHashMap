@@ -374,6 +374,54 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   }
   return boundary ;
 }
+uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
+    uint32_t candidate, rkey;
+    int32_t  budget = 32;// assumption
+    rkey = fastrand();
+    candidate = rkey & mask;
+    // such a loop is necessary for the result to be fair
+    while(candidate >= size) {
+        budget -= bused;// we wasted bused bits
+        if(budget >= (int32_t) bused)  {
+            rkey >>= bused;
+        } else {
+            rkey = fastrand();
+            budget = 32;// assumption
+        }
+        candidate = rkey & mask;
+    }
+    return candidate;
+}
+
+
+// Fisher-Yates shuffle, shuffling an array of integers
+void  fast_shuffle(int *storage, size_t size) {
+    size_t i;
+    uint32_t bused = 32 - __builtin_clz(size);
+    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
+    i=size;
+    while(i>1) {
+        for (; 2*i>m2; i--) {
+            size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+        }
+        m2 = m2 >> 1;
+        bused--;
+    }
+}
+
+void recursive_shuffle(int * storage, size_t size, size_t threshold) {
+  if(size < threshold)
+    fast_shuffle(storage, size);
+  else {
+    uint32_t bound = simd_inplace_onepass_shuffle((uint32_t*)storage, size);
+    recursive_shuffle(storage,bound,threshold);
+    recursive_shuffle(storage+bound,size-bound,threshold);
+  }
+}
 
 int demo(size_t N) {
     int bogus = 0;
@@ -424,6 +472,56 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD random split  cycles per key  %.2f \n", cycles_per_search1);
+
+
+
+    RDTSC_START(cycles_start);
+    fast_shuffle(array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("fast shuffle  cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N ,4096);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 4096 cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N ,16384);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 16384 cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N ,32768);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 32768 cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle(array, N ,65536);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 65536 cycles per key  %.2f \n", cycles_per_search1);
+
     return bogus;
 
 }
@@ -432,7 +530,8 @@ int demo(size_t N) {
 int main() {
   int bogus = 0;
   size_t N;
-  for(N = 4000; N <1000000000; N*=2) {
+  for(N = 400000; N <400000000; N*=10) {
     demo(N);
+    printf("\n\n");
   }
 }
