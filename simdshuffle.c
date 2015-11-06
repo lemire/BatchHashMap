@@ -378,8 +378,11 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
 int demo(size_t N) {
     int bogus = 0;
     size_t i;
+    uint32_t bound;
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
+    for(i = 0; i < N; i++)
+      array[i] = i;
     uint64_t cycles_start, cycles_final;
 #ifdef USE_GENERIC
     printf("Using some basic random number generator\n");
@@ -405,7 +408,7 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    inplace_onepass_shuffle((uint32_t*) array, N );
+    bogus += inplace_onepass_shuffle((uint32_t*) array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -414,7 +417,7 @@ int demo(size_t N) {
     printf("random split  cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
-    simd_inplace_onepass_shuffle((uint32_t*) array, N );
+    bogus += simd_inplace_onepass_shuffle((uint32_t*) array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -427,5 +430,9 @@ int demo(size_t N) {
 
 
 int main() {
-  return demo(100000);
+  int bogus = 0;
+  size_t N;
+  for(N = 4000; N <1000000000; N*=2) {
+    demo(N);
+  }
 }
