@@ -401,6 +401,73 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
   return boundary ;
 }
 
+uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
+  /* we run through the data. Anything in [0,boundary) is black,
+  * anything in [boundary, i) is white
+  * stuff in [i,...) is grey
+  * the function returns the location of the boundary.
+  *
+  * if length is large enough, at some point we will have a large chunk
+  * of black, and a large chunk of white, so we can proceed in vectorized
+  * manner, eating random bytes instead of random bits.
+  */
+  uint32_t boundary = 0;
+  uint32_t i;
+  uint8_t randbuf[64];
+  for(uint32_t i = 0; i < 64 / 4; ++i) {
+    uint32_t * r32 = (uint32_t *)(randbuf + 4 * i);
+    *r32 = fastrand();
+  }
+  //uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+  int randbudget = 64;
+
+  uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+  int randbitbudget = 64;
+
+  for(i = 0; i < length; ) {
+    if((boundary + 8 > i) || (i + 8 >= length)) {// will be predicted false
+      /* can't vectorize, not enough space, do it the slow way */
+      int coin = randbitbuf & 1;//getRandomBit();
+      if(randbitbudget == 1) {
+        randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+        randbitbudget = 64;
+      } else {
+        randbitbudget--;
+        randbitbuf >>=1;
+      }
+      if(coin) {
+        swap(array, i,boundary);
+        boundary++;
+      }
+      i++;
+
+    } else {// common path follows
+      /* we proceed 8 inputs at a time, but this can be generalized
+      * it would be ideal to go 32 or 64 ints at a time. The main difficulty
+      * is the shuffling.
+      */
+      uint8_t randbyte = randbuf[randbudget --];//getRandomByte();
+      if(randbudget == 0) {
+        randbudget = 64;
+        for(uint32_t i = 0; i < 64 / 4; ++i) {
+          uint32_t * r32 = (uint32_t *)(randbuf + 4 * i);
+          *r32 = fastrand();
+        }
+      }
+      __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+      uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
+      __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+      __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
+      // we shuffle allgrey so that the first part is black and the second part is white
+      __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+      _mm256_storeu_si256 ((__m256i *)(array + boundary), blackthenwhite);
+      _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
+      boundary += cnt; // might be faster with table look-up?
+      i += 8;
+    }
+  }
+  return boundary ;
+}
 
 uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate, rkey;
@@ -442,6 +509,16 @@ void  fast_shuffle(int *storage, size_t size) {
 }
 
 void recursive_shuffle(int * storage, size_t size, size_t threshold) {
+  if(size < threshold)
+    fast_shuffle(storage, size);
+  else {
+    uint32_t bound = simd_inplace_onepass_shuffle((uint32_t*)storage, size);
+    recursive_shuffle(storage,bound,threshold);
+    recursive_shuffle(storage+bound,size-bound,threshold);
+  }
+}
+
+void recursive_shuffle2(int * storage, size_t size, size_t threshold) {
   if(size < threshold)
     fast_shuffle(storage, size);
   else {
@@ -503,6 +580,14 @@ int demo(size_t N) {
     printf("SIMD random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
+        RDTSC_START(cycles_start);
+        bogus += simd_inplace_onepass_shuffle2((uint32_t*) array, N );
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (N);
+        printf("SIMD random split  cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
     fast_shuffle(array, N );
@@ -522,6 +607,14 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 4096 cycles per key  %.2f \n", cycles_per_search1);
 
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N ,4096);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 4096 cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,16384);
@@ -532,6 +625,14 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 16384 cycles per key  %.2f \n", cycles_per_search1);
 
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N ,16384);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 16384 cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,32768);
@@ -543,7 +644,28 @@ int demo(size_t N) {
     printf("recursive shuffle 32768 cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N ,32768);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 32768 cycles per key  %.2f \n", cycles_per_search1);
+
+
+
+    RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,65536);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 65536 cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N ,65536);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -561,6 +683,14 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 131072 cycles per key  %.2f \n", cycles_per_search1);
 
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N , 131072);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 131072 cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N , 262144);
@@ -572,6 +702,16 @@ int demo(size_t N) {
     printf("recursive shuffle 262144 cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N , 262144);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 262144 cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
     recursive_shuffle(array, N , 524288);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
@@ -579,6 +719,16 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 524288 cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N , 524288);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 524288 cycles per key  %.2f \n", cycles_per_search1);
+
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N , 1048576);
@@ -589,6 +739,14 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 1048576 cycles per key  %.2f \n", cycles_per_search1);
 
+    RDTSC_START(cycles_start);
+    recursive_shuffle2(array, N , 1048576);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("recursive shuffle 1048576 cycles per key  %.2f \n", cycles_per_search1);
 
 
 
