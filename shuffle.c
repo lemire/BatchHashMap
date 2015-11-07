@@ -285,6 +285,71 @@ void  fast_shuffle(int *storage, size_t size) {
     }
 }
 
+struct randombuffer
+{
+    uint64_t array;
+    int availablebits;
+};
+
+typedef struct randombuffer randbuf_t;
+
+
+void rbinit(randbuf_t * rb) {
+  rb->availablebits = 64;
+  rb->array =  fastrand() | ((uint64_t)fastrand << 32);
+}
+
+uint32_t grabBits(randbuf_t * rb, uint32_t mask, uint32_t bused ) {
+  if(rb->availablebits >= bused) {
+    uint32_t answer = rb->array & mask;
+    rb->array >>= bused;
+    rb->availablebits -= bused;
+    return answer;
+  } else {
+    // we use the bits we have
+    uint32_t answer = rb->array;
+    int consumed = 64 - rb->availablebits;
+    rbinit(rb);
+    answer |= (rb->array << consumed);
+    answer &= mask;
+    int lastbit = bused - consumed;
+    rb->availablebits = 64 - lastbit;
+    rb->array >>= lastbit;
+    return answer;
+  }
+}
+
+uint32_t fastFairRandomInt2(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_t bused) {
+    uint32_t candidate;
+    candidate = grabBits( rb, mask,bused );
+    // such a loop is necessary for the result to be fair
+
+    while(candidate >= size) {
+        candidate = grabBits( rb, mask,bused );
+    }
+    return candidate;
+}
+
+// Fisher-Yates shuffle, shuffling an array of integers
+void  fast_shuffle2(int *storage, size_t size) {
+    size_t i;
+    uint32_t bused = 32 - __builtin_clz(size);
+    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
+    i=size;
+    randbuf_t  rb;
+    rbinit(&rb);
+    while(i>1) {
+        for (; 2*i>m2; i--) {
+            size_t nextpos = fastFairRandomInt2(&rb, i, m2-1,bused);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+        }
+        m2 = m2 >> 1;
+        bused--;
+    }
+}
 
 // Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
 void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
@@ -549,6 +614,15 @@ int demo(size_t N) {
 
     RDTSC_START(cycles_start);
     fast_shuffle( array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    fast_shuffle2( array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 

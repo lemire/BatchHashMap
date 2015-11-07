@@ -114,7 +114,6 @@ uint32_t getbits(uint32_t mask, uint32_t bused) {
         int lastbit = bused - consumed;
         hardbudget = 64 - lastbit;
         hardrandom >>= lastbit;
-        //if(hardbudget < 0) abort();
         return answer;
     }
 }

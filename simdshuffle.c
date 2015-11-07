@@ -528,6 +528,16 @@ void recursive_shuffle2(int * storage, size_t size, size_t threshold) {
   }
 }
 
+int compare( const void* a, const void* b)
+{
+     int int_a = * ( (int*) a );
+     int int_b = * ( (int*) b );
+
+     if ( int_a == int_b ) return 0;
+     else if ( int_a < int_b ) return -1;
+     else return 1;
+}
+
 int demo(size_t N) {
     int bogus = 0;
     size_t i;
@@ -565,7 +575,10 @@ int demo(size_t N) {
     bogus += inplace_onepass_shuffle((uint32_t*) array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
-
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("random split  cycles per key  %.2f \n", cycles_per_search1);
@@ -578,8 +591,10 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD random split  cycles per key  %.2f \n", cycles_per_search1);
-
-
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
         RDTSC_START(cycles_start);
         bogus += simd_inplace_onepass_shuffle2((uint32_t*) array, N );
         bogus += array[0];
@@ -588,7 +603,10 @@ int demo(size_t N) {
         cycles_per_search1 =
             ( cycles_final - cycles_start) / (float) (N);
         printf("SIMD random split  cycles per key  %.2f \n", cycles_per_search1);
-
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
     RDTSC_START(cycles_start);
     fast_shuffle(array, N );
     bogus += array[0];
@@ -748,7 +766,11 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 1048576 cycles per key  %.2f \n", cycles_per_search1);
 
-
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+printf("Ok\n");
 
     return bogus;
 
