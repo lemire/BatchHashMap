@@ -412,10 +412,10 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
   * manner, eating random bytes instead of random bits.
   */
   uint32_t boundary = 0;
-  uint32_t i;
+  uint32_t i,j;
   uint8_t randbuf[64];
-  for(uint32_t i = 0; i < 64 / 4; ++i) {
-    uint32_t * r32 = (uint32_t *)(randbuf + 4 * i);
+  for(j = 0; j < 64 / 4; ++j) {
+    uint32_t * r32 = (uint32_t *)(randbuf + 4 * j);
     *r32 = fastrand();
   }
   //uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
@@ -449,8 +449,8 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
       uint8_t randbyte = randbuf[randbudget --];//getRandomByte();
       if(randbudget == 0) {
         randbudget = 64;
-        for(uint32_t i = 0; i < 64 / 4; ++i) {
-          uint32_t * r32 = (uint32_t *)(randbuf + 4 * i);
+        for(j = 0; j < 64 / 4; ++j) {
+          uint32_t * r32 = (uint32_t *)(randbuf + 4 * j);
           *r32 = fastrand();
         }
       }
