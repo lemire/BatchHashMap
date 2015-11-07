@@ -540,7 +540,7 @@ void recursive_shuffle2(int * storage, size_t size, size_t threshold) {
     if(size < threshold)
         fast_shuffle(storage, size);
     else {
-        uint32_t bound = simd_inplace_onepass_shuffle((uint32_t*)storage, size);
+        uint32_t bound = simd_inplace_onepass_shuffle2((uint32_t*)storage, size);
         recursive_shuffle(storage,bound,threshold);
         recursive_shuffle(storage+bound,size-bound,threshold);
     }
