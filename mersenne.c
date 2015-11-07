@@ -121,7 +121,7 @@ uint32_t grabBits(randbuf_t * rb, uint32_t mask, uint32_t bused ) {
   } else {
     // we use the bits we have
     uint32_t answer = (uint32_t) rb->array;
-    int consumed = 64 - rb->availablebits;
+    int consumed = rb->availablebits;
     rbinit(rb);
     answer |= (rb->array << consumed);
     answer &= mask;
