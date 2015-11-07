@@ -301,13 +301,13 @@ void rbinit(randbuf_t * rb) {
 
 uint32_t grabBits(randbuf_t * rb, uint32_t mask, uint32_t bused ) {
   if(rb->availablebits >= bused) {
-    uint32_t answer = rb->array & mask;
+    uint32_t answer = ((uint32_t) rb->array) & mask;
     rb->array >>= bused;
     rb->availablebits -= bused;
     return answer;
   } else {
     // we use the bits we have
-    uint32_t answer = rb->array;
+    uint32_t answer = (uint32_t) rb->array;
     int consumed = 64 - rb->availablebits;
     rbinit(rb);
     answer |= (rb->array << consumed);
