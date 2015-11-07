@@ -180,76 +180,18 @@ uint32_t round2 (uint32_t v) {
 uint32_t fairRandomInt(uint32_t size) {
     uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
-    do {
-        rkey = fastrand();
-        candidate = rkey % size;
-    } while(rkey - candidate  > RAND_MAX - size + 1 ); // will be predicted as false
-    return candidate;
-}
-
-#ifdef USE_HARDWARE
-uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
-    uint32_t candidate = getbits(mask,bused);
-    // such a loop is necessary for the result to be fair
-    while(candidate >= size) {
-        candidate = getbits(mask,bused);
-    }
-    return candidate;
-}
-
-#else
-
-uint32_t fastFairRandomInt(uint32_t size, uint32_t mask, uint32_t bused) {
-    uint32_t candidate, rkey;
-    int32_t  budget = 31;// assumption
     rkey = fastrand();
-    candidate = rkey & mask;
-    // such a loop is necessary for the result to be fair
-    while(candidate >= size) {
-        budget -= bused;// we wasted bused bits
-        if(budget >= (int32_t) bused)  {
-            rkey >>= bused;
-        } else {
-            rkey = fastrand();
-            budget = 31;// assumption
-        }
-        candidate = rkey & mask;
+    candidate = rkey % size;
+    while(rkey - candidate  > RAND_MAX - size + 1 ) { // will be predicted as false
+      rkey = fastrand();
+      candidate = rkey % size;
     }
     return candidate;
 }
-#endif
-
-// Fisher-Yates shuffle, shuffling an array of integers
-void  justrandom(size_t size) {
-    size_t i;
-    for (i=size; i>1; i--) {
-        fastrand();
-    }
-}
 
 
-// Fisher-Yates shuffle, shuffling an array of integers
-void  justrandomwithdiv(size_t size) {
-    size_t i;
-    for (i=size; i>1; i--) {
-        fairRandomInt(i);
-    }
-}
 
-// Fisher-Yates shuffle, shuffling an array of integers
-void  justrandomwithoutdiv(size_t size) {
-    size_t i;
-    uint32_t bused = 32 - __builtin_clz(size);
-    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
-    i=size;
-    while(i>1) {
-        for (; 2*i>m2; i--) {
-            size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
-        }
-        m2 = m2 >> 1;
-        bused--;
-    }
-}
+
 // Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle(int *storage, size_t size) {
     size_t i;
@@ -266,60 +208,7 @@ uint32_t fastround2 (uint32_t v) {
     return 1 << (32 - __builtin_clz(v-1));
 }
 
-// Fisher-Yates shuffle, shuffling an array of integers
-void  fast_shuffle(int *storage, size_t size) {
-    size_t i;
-    uint32_t bused = 32 - __builtin_clz(size);
-    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
-    i=size;
-    while(i>1) {
-        for (; 2*i>m2; i--) {
-            size_t nextpos = fastFairRandomInt(i, m2-1,bused);//
-            int tmp = storage[i - 1];// likely in cache
-            int val = storage[nextpos]; // could be costly
-            storage[i - 1] = val;
-            storage[nextpos] = tmp; // you might have to read this store later
-        }
-        m2 = m2 >> 1;
-        bused--;
-    }
-}
-
-struct randombuffer
-{
-    uint64_t array;
-    int availablebits;
-};
-
-typedef struct randombuffer randbuf_t;
-
-
-void rbinit(randbuf_t * rb) {
-  rb->availablebits = 64;
-  rb->array =  fastrand() | ((uint64_t)fastrand << 32);
-}
-
-uint32_t grabBits(randbuf_t * rb, uint32_t mask, uint32_t bused ) {
-  if(rb->availablebits >= bused) {
-    uint32_t answer = ((uint32_t) rb->array) & mask;
-    rb->array >>= bused;
-    rb->availablebits -= bused;
-    return answer;
-  } else {
-    // we use the bits we have
-    uint32_t answer = (uint32_t) rb->array;
-    int consumed = 64 - rb->availablebits;
-    rbinit(rb);
-    answer |= (rb->array << consumed);
-    answer &= mask;
-    int lastbit = bused - consumed;
-    rb->availablebits = 64 - lastbit;
-    rb->array >>= lastbit;
-    return answer;
-  }
-}
-
-uint32_t fastFairRandomInt2(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_t bused) {
+uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate;
     candidate = grabBits( rb, mask,bused );
     // such a loop is necessary for the result to be fair
@@ -331,7 +220,7 @@ uint32_t fastFairRandomInt2(randbuf_t * rb, uint32_t size, uint32_t mask, uint32
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
-void  fast_shuffle2(int *storage, size_t size) {
+void  fast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t bused = 32 - __builtin_clz(size);
     uint32_t m2 = 1 << (32- __builtin_clz(size-1));
@@ -340,7 +229,7 @@ void  fast_shuffle2(int *storage, size_t size) {
     rbinit(&rb);
     while(i>1) {
         for (; 2*i>m2; i--) {
-            size_t nextpos = fastFairRandomInt2(&rb, i, m2-1,bused);//
+            size_t nextpos = fastFairRandomInt(&rb, i, m2-1,bused);//
             int tmp = storage[i - 1];// likely in cache
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
@@ -587,7 +476,6 @@ int demo(size_t N) {
     printf("Using rand\n");
 #elif USE_HARDWARE
     printf("Using hardware\n");
-    hardbudget =0;
 #else
     printf("Using Mersenne Twister\n");
 #endif
@@ -614,15 +502,6 @@ int demo(size_t N) {
 
     RDTSC_START(cycles_start);
     fast_shuffle( array, N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
-
-    RDTSC_START(cycles_start);
-    fast_shuffle2( array, N );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
@@ -712,29 +591,7 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("sanders with prefetch 16 shuffle cycles per key  %.2f  \n", cycles_per_search1);
     free(array);
-    RDTSC_START(cycles_start);
-    justrandom( N );
-    RDTSC_FINAL(cycles_final);
 
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random cycles per key  %.2f \n", cycles_per_search1);
-
-    RDTSC_START(cycles_start);
-    justrandomwithdiv( N );
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random with div cycles per key  %.2f \n", cycles_per_search1);
-
-    RDTSC_START(cycles_start);
-    justrandomwithoutdiv( N );
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("just random without div cycles per key  %.2f \n", cycles_per_search1);
 
     return bogus;
 

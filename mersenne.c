@@ -92,29 +92,42 @@ uint32_t fastrand(void) {
 #endif
 }
 
-#ifdef USE_HARDWARE
 
-uint64_t hardrandom;
-int hardbudget;
 
-uint32_t getbits(uint32_t mask, uint32_t bused) {
-    if(hardbudget  >= bused) {
-        uint32_t answer = hardrandom & mask;
-        hardrandom >>= bused;
-        hardbudget -= bused;
+struct randombuffer
+{
+    uint64_t array;
+    int availablebits;
+};
 
-        return answer;
-    } else {
-        // we use the bits we have
-        uint32_t answer = hardrandom;
-        int consumed = 64 - hardbudget;
-        hardrandom = rand64();
-        answer |= (hardrandom << consumed);
-        answer &= mask;
-        int lastbit = bused - consumed;
-        hardbudget = 64 - lastbit;
-        hardrandom >>= lastbit;
-        return answer;
-    }
+typedef struct randombuffer randbuf_t;
+
+
+void rbinit(randbuf_t * rb) {
+  rb->availablebits = 64;
+  #ifdef USE_HARDWARE
+  rb->array = rand64();
+  #else
+  rb->array =  fastrand() | ((uint64_t)fastrand << 32);
+  #endif
 }
-#endif 
+
+uint32_t grabBits(randbuf_t * rb, uint32_t mask, uint32_t bused ) {
+  if(rb->availablebits >= bused) {
+    uint32_t answer = ((uint32_t) rb->array) & mask;
+    rb->array >>= bused;
+    rb->availablebits -= bused;
+    return answer;
+  } else {
+    // we use the bits we have
+    uint32_t answer = (uint32_t) rb->array;
+    int consumed = 64 - rb->availablebits;
+    rbinit(rb);
+    answer |= (rb->array << consumed);
+    answer &= mask;
+    int lastbit = bused - consumed;
+    rb->availablebits = 64 - lastbit;
+    rb->array >>= lastbit;
+    return answer;
+  }
+}
