@@ -15,6 +15,12 @@
 #include <stdint.h>
 #include <immintrin.h>
 
+#ifdef IACA
+#include </opt/intel/iaca/include/iacaMarks.h>
+#else
+#define IACA_START
+#define IACA_END
+#endif
 
 #define RDTSC_START(cycles)                                     \
     do {                                                        \
@@ -386,6 +392,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
                 randbudget --;
                 randbuf >>=8;
             }
+            IACA_START;
             __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
             uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
             __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
@@ -396,6 +403,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
             boundary += cnt; // might be faster with table look-up?
             i += 8;
+            IACA_END;
         }
     }
     return boundary ;
@@ -423,7 +431,7 @@ void  fast_shuffle(int *storage, size_t size) {
     rbinit(&rb);
     while(i>1) {
         for (; 2*i>m2; i--) {
-            size_t nextpos = fastFairRandomInt(&rb, i, m2-1,bused);//
+            uint32_t nextpos = fastFairRandomInt(&rb, i, m2-1,bused);//
             int tmp = storage[i - 1];// likely in cache
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
@@ -433,14 +441,16 @@ void  fast_shuffle(int *storage, size_t size) {
         bused--;
     }
 }
+
+
 uint32_t fairRandomInt(uint32_t size) {
     uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
     rkey = fastrand();
     candidate = rkey % size;
     while(rkey - candidate  > RAND_MAX - size + 1 ) { // will be predicted as false
-      rkey = fastrand();
-      candidate = rkey % size;
+        rkey = fastrand();
+        candidate = rkey % size;
     }
     return candidate;
 }
@@ -465,6 +475,14 @@ void recursive_shuffle(int * storage, size_t size, size_t threshold) {
         uint32_t bound = simd_inplace_onepass_shuffle((uint32_t*)storage, size);
         recursive_shuffle(storage,bound,threshold);
         recursive_shuffle(storage+bound,size-bound,threshold);
+    }
+}
+
+void heuristic_shuffle(int * storage, size_t size) {
+    uint32_t bused = 32 - __builtin_clz(size);
+    while(bused != 0) {
+        simd_inplace_onepass_shuffle((uint32_t*)storage, size);
+        bused--;
     }
 }
 
@@ -545,6 +563,12 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+
     RDTSC_START(cycles_start);
     fast_shuffle(array, N );
     bogus += array[0];
@@ -554,9 +578,25 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("fast shuffle  cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    RDTSC_START(cycles_start);
+    heuristic_shuffle(array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("heuristic shuffle  cycles per key  %.2f \n", cycles_per_search1);
 
 
-
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
 
 
     RDTSC_START(cycles_start);
