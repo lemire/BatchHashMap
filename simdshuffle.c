@@ -541,8 +541,8 @@ void recursive_shuffle2(int * storage, size_t size, size_t threshold) {
         fast_shuffle(storage, size);
     else {
         uint32_t bound = simd_inplace_onepass_shuffle2((uint32_t*)storage, size);
-        recursive_shuffle(storage,bound,threshold);
-        recursive_shuffle(storage+bound,size-bound,threshold);
+        recursive_shuffle2(storage,bound,threshold);
+        recursive_shuffle2(storage+bound,size-bound,threshold);
     }
 }
 
