@@ -496,7 +496,6 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
 
 
 uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_t * out) {
-    uint32_t * arraybegin = array;
     uint32_t * arrayend = array + length;
     /**
     0's are written to top, proceeding toward bottom.
@@ -516,6 +515,7 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
             randbudget --;
             randbuf >>=8;
         }
+        IACA_START;
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         uint32_t num1s = _mm_popcnt_u32(randbyte);
         uint32_t num0s = 8 - num1s;
@@ -527,6 +527,7 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
         top += num1s;
         _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
         bottom -= num0s;
+        IACA_END;
     }
     /**
     * We finish off the rest with a scalar algo.
@@ -645,7 +646,6 @@ int compare( const void* a, const void* b)
 int demo(size_t N) {
     int bogus = 0;
     size_t i;
-    uint32_t bound;
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
     int *tmparray = (int *) malloc( N * sizeof(int) );
@@ -873,10 +873,10 @@ int demo(size_t N) {
 
 
 int main() {
-    int bogus = 0;
     size_t N;
     for(N = 4096; N < 2147483648; N*=8) {
         demo(N);
         printf("\n\n");
     }
+    return 0;
 }

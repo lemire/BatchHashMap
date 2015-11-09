@@ -97,7 +97,7 @@ uint32_t fastrand(void) {
 struct randombuffer
 {
     uint64_t array;
-    int availablebits;
+    uint32_t availablebits;
 };
 
 typedef struct randombuffer randbuf_t;
