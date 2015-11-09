@@ -734,8 +734,8 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
             uint8_t randbyte = randbuf & 0xFF;
             uint8_t randbyte2 = (randbuf >> 8) & 0xFF;
 
-                randbudget -=2;
-                randbuf >>=16;
+            randbudget -=2;
+            randbuf >>=16;
 
             __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
             uint32_t cnt = _mm_popcnt_u32(randbyte);
@@ -756,7 +756,7 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
 
             _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
             _mm256_storeu_si256 ((__m256i *)(array + i + 8), allwhite2);
-            boundary += cnt + cnt2; 
+            boundary += cnt + cnt2;
             i += 16;
 
         }
@@ -822,6 +822,63 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
     *len0 = out0 - out0begin;
 }
 
+// improving slightly over Fast Quicksort Implementation Using AVX Instructions
+void simd_fasterthangueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out1, uint32_t *out0,size_t * len1, size_t * len0) {
+    uint32_t * out0begin = out0;
+    uint32_t * out1begin = out1;
+
+    uint32_t i;
+    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbudget = 8;
+
+    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbitbudget = 64;
+    __m256i reverseme = _mm256_set_epi32(0,1,2,3,4,5,6,7);
+    for(i = 0; i + 7 < length; ) {
+        uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+        if(randbudget == 1) {
+            randbudget = 8;
+            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+        } else {
+            randbudget --;
+            randbuf >>=8;
+        }
+        __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+
+        uint32_t cnt1 = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
+        uint32_t cnt0 = 8 - cnt1;
+        __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+        __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+        __m256i whitethenblack = _mm256_permutevar8x32_epi32(blackthenwhite,reverseme);
+
+        _mm256_storeu_si256 ((__m256i *)(out1), blackthenwhite);
+        _mm256_storeu_si256 ((__m256i *)(out0), whitethenblack);
+        out1 += cnt1;
+        out0 += cnt0;
+        i += 8;
+    }
+    for(; i  < length; i++) {
+
+        /* can't vectorize, not enough space, do it the slow way */
+        int coin = randbitbuf & 1;//getRandomBit();
+        if(randbitbudget == 1) {
+            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+            randbitbudget = 64;
+        } else {
+            randbitbudget--;
+            randbitbuf >>=1;
+        }
+        if(coin) {
+            out1[0] = array[0];
+            out1++;
+        } else {
+            out0[0] = array[0];
+            out0++;
+        }
+    }
+    *len1 = out1 - out1begin;
+    *len0 = out0 - out0begin;
+}
 
 // uses 128-bit vectors
 uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
@@ -1189,6 +1246,24 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
+
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
+    RDTSC_START(cycles_start);
+    simd_fasterthangueron_onepass_shuffle((uint32_t*) array, N, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
+    bogus += len1 + len2;
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("Faster-Than-Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
     // reinitialize the tests so we start fresh
     for(i = 0; i < N; ++i) {
