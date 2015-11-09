@@ -430,6 +430,7 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
             randbudget --;
             randbuf >>=8;
         }
+        IACA_START;
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         uint32_t num1s = _mm_popcnt_u32(randbyte);
         uint32_t num0s = 8 - num1s;
@@ -441,6 +442,7 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
         top += num1s;
         _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
         bottom -= num0s;
+        IACA_END;
     }
     /**
     * We finish off the rest with a scalar algo.
