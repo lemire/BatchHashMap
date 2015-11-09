@@ -988,10 +988,26 @@ int demo(size_t N) {
 
     for(i = 0; i < N; ++i) {
         array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
     }
     x=1;
     seedMT(x);
     printf("\n");
+
+    // sanity testing
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+    qsort( tmparray, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(tmparray[i] != i) abort();
+    }
+    qsort( tmparray2, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(tmparray2[i] != i) abort();
+    }
 
 
     RDTSC_START(cycles_start);
@@ -1006,6 +1022,18 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("random split  cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
     RDTSC_START(cycles_start);
     bogus += simd_inplace_onepass_shuffle((uint32_t*) array, N );
     bogus += array[0];
@@ -1014,9 +1042,17 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
+
     qsort( array, N, sizeof(int), compare );
     for(i = 0; i < N; ++i) {
         if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
     }
 
 
@@ -1028,9 +1064,17 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD (128) random split  cycles per key  %.2f \n", cycles_per_search1);
+
     qsort( array, N, sizeof(int), compare );
     for(i = 0; i < N; ++i) {
         if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
@@ -1043,6 +1087,12 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
     RDTSC_START(cycles_start);
     bogus += simd_twobuffer_onepass_shuffle((uint32_t*) array, N ,(uint32_t*)  tmparray);
@@ -1052,9 +1102,17 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD two-buffer random split  cycles per key  %.2f \n", cycles_per_search1);
+
     qsort( tmparray, N, sizeof(int), compare );
     for(i = 0; i < N; ++i) {
         if(tmparray[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
     }
 
 
@@ -1070,6 +1128,12 @@ int demo(size_t N) {
     qsort( array, N, sizeof(int), compare );
     for(i = 0; i < N; ++i) {
         if(array[i] != i) abort();
+    }
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
     }
 
 
@@ -1087,6 +1151,13 @@ int demo(size_t N) {
         if(array[i] != i) abort();
     }
 
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
     RDTSC_START(cycles_start);
     heuristic_shuffle(array, N );
     bogus += array[0];
@@ -1102,6 +1173,12 @@ int demo(size_t N) {
         if(array[i] != i) abort();
     }
 
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,4096);
@@ -1112,6 +1189,18 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 4096 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,16384);
     bogus += array[0];
@@ -1121,6 +1210,17 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 16384 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N ,32768);
@@ -1131,7 +1231,17 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 32768 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
 
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
 
     RDTSC_START(cycles_start);
@@ -1143,6 +1253,18 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 65536 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
 
 
@@ -1155,6 +1277,18 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 131072 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
 
     RDTSC_START(cycles_start);
     recursive_shuffle(array, N , 262144);
@@ -1165,6 +1299,17 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 262144 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
 
     RDTSC_START(cycles_start);
@@ -1176,6 +1321,17 @@ int demo(size_t N) {
         ( cycles_final - cycles_start) / (float) (N);
     printf("recursive shuffle 524288 cycles per key  %.2f \n", cycles_per_search1);
 
+    qsort( array, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(array[i] != i) abort();
+    }
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
 
 
     RDTSC_START(cycles_start);
