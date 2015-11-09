@@ -410,6 +410,66 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
 }
 
 
+uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_t * out) {
+    uint32_t * arraybegin = array;
+    uint32_t * arrayend = array + length;
+    /**
+    0's are written to top, proceeding toward bottom.
+
+    1's are written to bottom, backward toward top.
+    */
+    uint32_t * top = out;
+    uint32_t *  bottom = out + length - 1;
+    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbudget = 8;
+   while(bottom - top >= 15 ) {
+       uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+      if(randbudget == 1) {
+          randbudget = 8;
+          randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+      } else {
+          randbudget --;
+          randbuf >>=8;
+      }
+      __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+      uint32_t num1s = _mm_popcnt_u32(randbyte);
+      uint32_t num0s = 8 - num1s;
+      __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+      array += 8;
+      // we shuffle allgrey so that the first part is black and the second part is white
+      __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+      _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+      top += num1s;
+      _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+      bottom -= num0s;
+    }
+    /**
+    * We finish off the rest with a scalar algo.
+    * It could be vectorized for greater speed on small arrays.
+    */
+    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbitbudget = 64;
+    for(; array < arrayend; ++array) {
+            int coin = randbitbuf & 1;//getRandomBit();
+            if(randbitbudget == 1) {
+                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbudget = 64;
+            } else {
+                randbitbudget--;
+                randbitbuf >>=1;
+            }
+            if(coin) {
+              *top = *array;
+              ++top;
+            } else {
+              *bottom = *array;
+              --bottom;
+            }
+    }
+    return bottom - out;
+}
+
+
 uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate;
     candidate = grabBits( rb, mask,bused );
@@ -503,6 +563,7 @@ int demo(size_t N) {
     uint32_t bound;
     float cycles_per_search1;
     int *array = (int *) malloc( N * sizeof(int) );
+    int *tmparray = (int *) malloc( N * sizeof(int) );
     for(i = 0; i < N; i++)
         array[i] = i;
     uint64_t cycles_start, cycles_final;
@@ -553,6 +614,20 @@ int demo(size_t N) {
     for(i = 0; i < N; ++i) {
         if(array[i] != i) abort();
     }
+
+    RDTSC_START(cycles_start);
+    bogus += simd_twobuffer_onepass_shuffle((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("SIMD two-buffer random split  cycles per key  %.2f \n", cycles_per_search1);
+    qsort( tmparray, N, sizeof(int), compare );
+    for(i = 0; i < N; ++i) {
+        if(tmparray[i] != i) abort();
+    }
+
 
     RDTSC_START(cycles_start);
     shuffle( array, N );
@@ -689,6 +764,9 @@ int demo(size_t N) {
         if(array[i] != i) abort();
     }
     printf("Ok\n");
+
+    free(array);
+    free(tmparray);
 
     return bogus;
 
