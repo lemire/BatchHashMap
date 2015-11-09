@@ -421,26 +421,26 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
     uint32_t *  bottom = out + length - 1;
     uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
     int randbudget = 8;
-   while(bottom - top >= 15 ) {
-       uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
-      if(randbudget == 1) {
-          randbudget = 8;
-          randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
-      } else {
-          randbudget --;
-          randbuf >>=8;
-      }
-      __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
-      uint32_t num1s = _mm_popcnt_u32(randbyte);
-      uint32_t num0s = 8 - num1s;
-      __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
-      array += 8;
-      // we shuffle allgrey so that the first part is black and the second part is white
-      __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
-      _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
-      top += num1s;
-      _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
-      bottom -= num0s;
+    while(bottom - top >= 15 ) {
+        uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+        if(randbudget == 1) {
+            randbudget = 8;
+            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+        } else {
+            randbudget --;
+            randbuf >>=8;
+        }
+        __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+        uint32_t num1s = _mm_popcnt_u32(randbyte);
+        uint32_t num0s = 8 - num1s;
+        __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+        array += 8;
+        // we shuffle allgrey so that the first part is black and the second part is white
+        __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+        _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+        top += num1s;
+        _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+        bottom -= num0s;
     }
     /**
     * We finish off the rest with a scalar algo.
@@ -449,21 +449,21 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
     uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
     int randbitbudget = 64;
     for(; array < arrayend; ++array) {
-            int coin = randbitbuf & 1;//getRandomBit();
-            if(randbitbudget == 1) {
-                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-                randbitbudget = 64;
-            } else {
-                randbitbudget--;
-                randbitbuf >>=1;
-            }
-            if(coin) {
-              *top = *array;
-              ++top;
-            } else {
-              *bottom = *array;
-              --bottom;
-            }
+        int coin = randbitbuf & 1;//getRandomBit();
+        if(randbitbudget == 1) {
+            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+            randbitbudget = 64;
+        } else {
+            randbitbudget--;
+            randbitbuf >>=1;
+        }
+        if(coin) {
+            *top = *array;
+            ++top;
+        } else {
+            *bottom = *array;
+            --bottom;
+        }
     }
     return bottom - out;
 }
