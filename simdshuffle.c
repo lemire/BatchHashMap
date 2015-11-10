@@ -1570,7 +1570,7 @@ int demo(size_t N) {
 
 int main() {
     size_t N;
-    for(N = 32768; N < 2147483648; N*=8) {
+    for(N = 16384; N < 2147483648; N*=8) {
         demo(N);
         printf("\n\n");
     }
