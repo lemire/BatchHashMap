@@ -1112,6 +1112,23 @@ uint32_t simd_simplified(uint32_t * array, size_t length, uint32_t * out) {
     }
     return bottom - out;
 }
+
+
+uint32_t simd_simplified_top(uint32_t * array, size_t length, uint32_t * out) {
+    uint32_t * top = out;
+    uint32_t *  bottom = out + length - 1;
+    while(bottom - top >= 15 ) {
+        // _mm_prefetch(top + 32, 1);
+        *top = 1;
+        top += 4;
+        // _mm_prefetch(bottom - 32, 1);
+//        *bottom = 1;
+//        bottom -= 4;
+    }
+    return bottom - out;
+}
+
+
 int compare( const void* a, const void* b)
 {
     int int_a = * ( (int*) a );
@@ -1305,6 +1322,24 @@ int demo(size_t N) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (N);
     printf("SIMD two-buffer simplified (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
+
+
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+
+
+    RDTSC_START(cycles_start);
+    bogus += simd_simplified_top((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("SIMD two-buffer top simplified (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
 
