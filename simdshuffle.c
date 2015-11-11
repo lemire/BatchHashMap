@@ -1000,8 +1000,8 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
             __m256i blendm = _mm256_srai_epi32(shufm,31);
             uint32_t cnt = _mm_popcnt_u32(randbyte);
             __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
-            //__m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
-            __m256i allwhite = _mm256_maskload_epi32 ((int *)(array + boundary), shufm);
+            __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
+            //__m256i allwhite = _mm256_maskload_epi32 ((int *)(array + boundary), shufm);
 
 //            _mm256_lddqu_si256((__m256i *)(array + boundary));
             // we shuffle allgrey so that the first part is black and the second part is white
@@ -1018,6 +1018,78 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
     return boundary ;
 }
 
+uint32_t simd_inplace_onepass_shuffle_mask2(uint32_t * array, size_t length) {
+    /* we run through the data. Anything in [0,boundary) is black,
+    * anything in [boundary, i) is white
+    * stuff in [i,...) is grey
+    * the function returns the location of the boundary.
+    *
+    * if length is large enough, at some point we will have a large chunk
+    * of black, and a large chunk of white, so we can proceed in vectorized
+    * manner, eating random bytes instead of random bits.
+    */
+    uint32_t boundary = 0;
+    uint32_t i;
+    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbudget = 8;
+
+    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    int randbitbudget = 64;
+
+    for(i = 0; i < length; ) {
+        if((boundary + 8 > i) || (i + 8 >= length)) {// will be predicted false
+            /* can't vectorize, not enough space, do it the slow way */
+            int coin = randbitbuf & 1;//getRandomBit();
+            if(randbitbudget == 1) {
+                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbudget = 64;
+            } else {
+                randbitbudget--;
+                randbitbuf >>=1;
+            }
+            if(coin) {
+                swap(array, i,boundary);
+                boundary++;
+            }
+            i++;
+
+        } else {// common path follows
+            /* we proceed 8 inputs at a time, but this can be generalized
+            * it would be ideal to go 32 or 64 ints at a time. The main difficulty
+            * is the shuffling.
+            */
+            uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+            if(randbudget == 1) {
+                randbudget = 8;
+                randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+            } else {
+                randbudget --;
+                randbuf >>=8;
+            }
+            /**
+            * Here we do something fun. We are going to write cnt blacks at boundary.
+            **/
+            __m256i shufm = _mm256_load_si256((__m256i *)(shufflemaskwithflag + 8 * randbyte));
+            __m256i blendm = _mm256_srai_epi32(shufm,31);
+            uint32_t cnt = _mm_popcnt_u32(randbyte);
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+            __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
+            //__m256i allwhite = _mm256_maskload_epi32 ((int *)(array + boundary), shufm);
+
+//            _mm256_lddqu_si256((__m256i *)(array + boundary));
+            // we shuffle allgrey so that the first part is black and the second part is white
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            __m256i blendedallwhite = _mm256_blendv_epi8 (blackthenwhite,allwhite,blendm);// first cnt ints come from allwhite, others come from blackand white
+
+            //_mm256_storeu_si256
+            _mm256_maskstore_epi32 ((int *)(array + boundary -  cnt), shufm, blackthenwhite);
+            _mm256_storeu_si256 ((__m256i *)(array + i), blendedallwhite);
+            boundary += cnt; // might be faster with table look-up?
+            i += 8;
+        }
+    }
+    return boundary ;
+}
 uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
     /* we run through the data. Anything in [0,boundary) is black,
     * anything in [boundary, i) is white
@@ -1587,6 +1659,20 @@ int demo(size_t N) {
     for(i = 0; i < N; ++i) {
         if(array[i] != i) abort();
     }
+    // reinitialize the tests so we start fresh
+    for(i = 0; i < N; ++i) {
+        array[i] = i;
+        tmparray[i] = i;
+        tmparray2[i] = i;
+    }
+    RDTSC_START(cycles_start);
+    bogus += simd_inplace_onepass_shuffle_mask2((uint32_t*) array, N );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (N);
+    printf("SIMD (256) mask 2 (BOGUS) random split  cycles per key  %.2f \n", cycles_per_search1);
 
     // reinitialize the tests so we start fresh
     for(i = 0; i < N; ++i) {
