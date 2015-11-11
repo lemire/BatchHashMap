@@ -1130,17 +1130,17 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
         out0 += cnt0;
         i += 8;
     }
+    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
     for(; i  < length; i++) {
 
         /* can't vectorize, not enough space, do it the slow way */
         int coin = randbitbuf & 1;//getRandomBit();
-        if(randbitbudget == 1) {
-            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-            randbitbudget = 64;
-        } else {
-            randbitbudget--;
+        //if(randbitbudget == 1) {
+        //    randbitbudget = 64;
+        //} else {
+        //    randbitbudget--;
             randbitbuf >>=1;
-        }
+        //}
         if(coin) {
             out1[0] = array[0];
             out1++;
@@ -1190,17 +1190,17 @@ void simd_fasterthangueron_onepass_shuffle(uint32_t * array,  size_t length, uin
         out0 += cnt0;
         i += 8;
     }
+    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
     for(; i  < length; i++) {
 
         /* can't vectorize, not enough space, do it the slow way */
         int coin = randbitbuf & 1;//getRandomBit();
-        if(randbitbudget == 1) {
-            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-            randbitbudget = 64;
-        } else {
-            randbitbudget--;
+        //if(randbitbudget == 1) {
+        //    randbitbudget = 64;
+        //} else {
+        //    randbitbudget--;
             randbitbuf >>=1;
-        }
+        //}
         if(coin) {
             out1[0] = array[0];
             out1++;
@@ -1324,13 +1324,13 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
     int randbitbudget = 64;
     for(; array < arrayend; ++array) {
         int coin = randbitbuf & 1;//getRandomBit();
-        if(randbitbudget == 1) {
-            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-            randbitbudget = 64;
-        } else {
-            randbitbudget--;
+        //if(randbitbudget == 1) {
+        //    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+        //    randbitbudget = 64;
+        //} else {
+        //    randbitbudget--;
             randbitbuf >>=1;
-        }
+        //}
         if(coin) {
             *top = *array;
             ++top;
@@ -1387,13 +1387,13 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
     int randbitbudget = 64;
     for(; array < arrayend; ++array) {
         int coin = randbitbuf & 1;//getRandomBit();
-        if(randbitbudget == 1) {
-            randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-            randbitbudget = 64;
-        } else {
-            randbitbudget--;
+        //if(randbitbudget == 1) {
+        //    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+        //    randbitbudget = 64;
+        //} else {
+        //    randbitbudget--;
             randbitbuf >>=1;
-        }
+        //}
         if(coin) {
             *top = *array;
             ++top;
