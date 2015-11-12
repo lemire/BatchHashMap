@@ -1001,15 +1001,11 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
             uint32_t cnt = _mm_popcnt_u32(randbyte);
             __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
             __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
-            //__m256i allwhite = _mm256_maskload_epi32 ((int *)(array + boundary), shufm);
-
-//            _mm256_lddqu_si256((__m256i *)(array + boundary));
             // we shuffle allgrey so that the first part is black and the second part is white
             __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
             __m256i blendedallwhite = _mm256_blendv_epi8 (blackthenwhite,allwhite,blendm);// first cnt ints come from allwhite, others come from blackand white
 
-            //_mm256_storeu_si256
-            _mm256_maskstore_epi32 ((int *)(array + boundary), shufm, blackthenwhite);
+            _mm256_maskstore_epi32 ((int *)(array + boundary), shufm, blackthenwhite);// we only write the blacks, overwriting cnt ints
             _mm256_storeu_si256 ((__m256i *)(array + i), blendedallwhite);
             boundary += cnt; // might be faster with table look-up?
             i += 8;
