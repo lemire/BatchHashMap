@@ -1403,6 +1403,8 @@ void  fast_shuffle_floatapprox(int *storage, size_t size) {
     supposedly, you can map a 64-bit random int v to a double by doing this:
          v * (1.0/18446744073709551616.0L);
         so to get a number between 0 and x, you just multiply this by x?
+
+        But this is bogus.
     * */
     size_t i;
     for(i=size; i>1; i--) {
@@ -1793,29 +1795,7 @@ int demo(size_t array_size) {
             if(array[i] != i) abort();
         }
     }
-    for(repeat = 0; repeat < howmany; repeat++ ) {
-        // reinitialize the tests so we start fresh
-        for(i = 0; i < array_size; ++i) {
-            array[i] = i;
-            tmparray[i] = i;
-            tmparray2[i] = i;
-        }
 
-
-        RDTSC_START(cycles_start);
-        fast_shuffle_floatapprox(array, array_size );
-        bogus += array[0];
-        RDTSC_FINAL(cycles_final);
-
-        cycles_per_search1 =
-            ( cycles_final - cycles_start) / (float) (array_size);
-        printf("fast shuffle with float approx cycles per key  %.2f \n", cycles_per_search1);
-
-        qsort( array, array_size, sizeof(int), compare );
-        for(i = 0; i < array_size; ++i) {
-            if(array[i] != i) abort();
-        }
-    }
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
         for(i = 0; i < array_size; ++i) {
@@ -1852,6 +1832,8 @@ int demo(size_t array_size) {
 int main() {
     init_gen_rand(0); // simd mersenne
     size_t array_size;
+    int r = checkfloatfair();
+    if(!r) return r;
     for(array_size = 16384; array_size < 2147483648; array_size*=8) {
         demo(array_size);
         printf("\n\n");

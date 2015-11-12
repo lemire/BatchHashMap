@@ -246,6 +246,8 @@ void  fast_shuffle_floatapprox(int *storage, size_t size) {
   supposedly, you can map a 64-bit random int v to a double by doing this:
        v * (1.0/18446744073709551616.0L);
       so to get a number between 0 and x, you just multiply this by x?
+
+      But this is bogus.
   * */
     size_t i;
     for(i=size; i>1; i--) {
