@@ -1405,23 +1405,12 @@ void  fast_shuffle_floatapprox(int *storage, size_t size) {
         so to get a number between 0 and x, you just multiply this by x?
     * */
     size_t i;
-    uint32_t bused = 32 - __builtin_clz(size);
-    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
-    double m2f = m2 * (1.0/18446744073709551616.0L);
-    i=size;
-    randbuf_t  rb;
-    rbinit(&rb);
-    while(i>1) {
-        for (; 2*i>m2; i--) {
-            uint32_t nextpos = (uint32_t)(fastrand64() * m2f);//
+    for(i=size; i>1; i--) {
+            uint32_t nextpos = (uint32_t)(fastrand64() * i * (1.0/18446744073709551616.0L));//
             int tmp = storage[i - 1];// likely in cache
             int val = storage[nextpos]; // could be costly
             storage[i - 1] = val;
             storage[nextpos] = tmp; // you might have to read this store later
-        }
-        m2 = m2 >> 1;
-        m2f = m2 * (1.0/18446744073709551616.0L);
-        bused--;
     }
 }
 
