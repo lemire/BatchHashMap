@@ -1517,6 +1517,8 @@ int demo(size_t array_size) {
     uint64_t cycles_start, cycles_final;
 #ifdef USE_GENERIC
     printf("Using some basic random number generator\n");
+#elif USE_SIMDMT
+    printf("Using SIMD Mersenne Twister\n");
 #elif USE_MT
     printf("Using Mersenne Twister\n");
 #elif USE_RAND
@@ -1524,7 +1526,7 @@ int demo(size_t array_size) {
 #elif USE_HARDWARE
     printf("Using hardware\n");
 #else
-    printf("Using Mersenne Twister\n");
+    printf("Using SIMD Mersenne Twister\n");
 #endif
 
     printf("populating array %zu \n",array_size);
