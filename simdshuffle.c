@@ -1070,6 +1070,103 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
     return boundary ;
 }
 
+int32_t simd_inplace_onepass_shuffle4(uint32_t * array, size_t length) {
+    /* we run through the data. Anything in [0,boundary) is black,
+    * anything in [boundary, i) is white
+    * stuff in [i,...) is grey
+    * the function returns the location of the boundary.
+    *
+    * if length is large enough, at some point we will have a large chunk
+    * of black, and a large chunk of white, so we can proceed in vectorized
+    * manner, eating random bytes instead of random bits.
+    */
+    uint32_t boundary = 0;
+    uint32_t i;
+    uint64_t  randbuf = fastrand64();// 64-bit random value
+    int randbudget = 8;
+
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    int randbitbudget = 64;
+
+    for(i = 0; i < length; ) {
+        if((boundary + 31 > i) || (i + 32 >= length)) {// will be predicted false
+            /* can't vectorize, not enough space, do it the slow way */
+            int coin = randbitbuf & 1;//getRandomBit();
+            if(randbitbudget == 1) {
+                randbitbuf = fastrand64();// 64-bit random value
+                randbitbudget = 64;
+            } else {
+                randbitbudget--;
+                randbitbuf >>=1;
+            }
+            if(coin) {
+                swap(array, i,boundary);
+                boundary++;
+            }
+            i++;
+
+        } else {// common path follows
+            /* we proceed 8 inputs at a time, but this can be generalized
+            * it would be ideal to go 32 or 64 ints at a time. The main difficulty
+            * is the shuffling.
+            */
+            if(randbudget <= 3) {
+                randbudget = 8;
+                randbuf = fastrand64();// 64-bit random value
+            }
+            uint8_t randbyte = randbuf & 0xFF;
+            uint8_t randbyte2 = (randbuf >> 8) & 0xFF;
+            uint8_t randbyte3 = (randbuf >> 16) & 0xFF;
+            uint8_t randbyte4 = (randbuf >> 24) & 0xFF;
+
+            randbudget -=4;
+            randbuf >>=32;
+
+            __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+            uint32_t cnt = _mm_popcnt_u32(randbyte);
+            __m256i shufm2 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte2));
+            uint32_t cnt2 = _mm_popcnt_u32(randbyte2);
+            __m256i shufm3 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte3));
+            uint32_t cnt3 = _mm_popcnt_u32(randbyte2);
+            __m256i shufm4 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte4));
+            uint32_t cnt4 = _mm_popcnt_u32(randbyte2);
+
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+            __m256i allgrey2 = _mm256_lddqu_si256((__m256i *)(array + i +8));// this is all grey
+            __m256i allgrey3 = _mm256_lddqu_si256((__m256i *)(array + i +16));// this is all grey
+            __m256i allgrey4 = _mm256_lddqu_si256((__m256i *)(array + i +24));// this is all grey
+
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            __m256i blackthenwhite2 = _mm256_permutevar8x32_epi32(allgrey2,shufm2);
+            __m256i blackthenwhite3 = _mm256_permutevar8x32_epi32(allgrey3,shufm3);
+            __m256i blackthenwhite4 = _mm256_permutevar8x32_epi32(allgrey4,shufm4);
+
+            __m256i allwhite = _mm256_lddqu_si256((__m256i *)(array + boundary));// this is all white
+            _mm256_storeu_si256 ((__m256i *)(array + boundary), blackthenwhite);
+
+            __m256i allwhite2 = _mm256_lddqu_si256((__m256i *)(array + boundary + cnt));// this is all white
+            _mm256_storeu_si256 ((__m256i *)(array + boundary + cnt ), blackthenwhite2);
+
+            __m256i allwhite3 = _mm256_lddqu_si256((__m256i *)(array + boundary + cnt + cnt2));// this is all white
+            _mm256_storeu_si256 ((__m256i *)(array + boundary + cnt + cnt2), blackthenwhite3);
+
+            __m256i allwhite4 = _mm256_lddqu_si256((__m256i *)(array + boundary + cnt + cnt2 + cnt3));// this is all white
+            _mm256_storeu_si256 ((__m256i *)(array + boundary + cnt + cnt2 + cnt3), blackthenwhite4);
+
+
+            _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
+            _mm256_storeu_si256 ((__m256i *)(array + i + 8), allwhite2);
+            _mm256_storeu_si256 ((__m256i *)(array + i + 16), allwhite3);
+            _mm256_storeu_si256 ((__m256i *)(array + i + 24), allwhite4);
+
+            boundary += cnt + cnt2 + cnt3 + cnt4;
+            i += 32;
+
+        }
+    }
+    return boundary ;
+}
+
 // follows roughly what you can find in Fast Quicksort Implementation Using AVX Instructions
 void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out1, uint32_t *out0,size_t * len1, size_t * len0) {
     uint32_t * out0begin = out0;
@@ -1879,6 +1976,31 @@ int demo(size_t array_size) {
         }
 
     }
+
+    for(repeat = 0; repeat < howmany; repeat++ ) {
+        // reinitialize the tests so we start fresh
+        for(i = 0; i < array_size; ++i) {
+            array[i] = i;
+            tmparray[i] = i;
+            tmparray2[i] = i;
+        }
+
+        RDTSC_START(cycles_start);
+        bogus += simd_inplace_onepass_shuffle4((uint32_t*) array, array_size );
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (array_size);
+        printf("SIMD (256) random split 4-by-4 cycles per key  %.2f \n", cycles_per_search1);
+
+        qsort( array, array_size, sizeof(int), compare );
+        for(i = 0; i < array_size; ++i) {
+            if(array[i] != i) abort();
+        }
+
+    }
+
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
         for(i = 0; i < array_size; ++i) {
