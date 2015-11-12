@@ -2035,30 +2035,6 @@ int demo(size_t array_size) {
             if(tmparray[i] != i) abort();
         }
     }
-
-    for(repeat = 0; repeat < howmany; repeat++ ) {
-        // reinitialize the tests so we start fresh
-        for(i = 0; i < array_size; ++i) {
-            array[i] = i;
-            tmparray[i] = i;
-            tmparray2[i] = i;
-        }
-
-
-        RDTSC_START(cycles_start);
-        bogus += simd_twobuffer_onepass_shuffle_prefetch2((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
-        bogus += array[0];
-        RDTSC_FINAL(cycles_final);
-
-        cycles_per_search1 =
-            ( cycles_final - cycles_start) / (float) (array_size);
-        printf("SIMD two-buffer with prefetch 2-by-2 random split  cycles per key  %.2f \n", cycles_per_search1);
-
-        qsort( tmparray, array_size, sizeof(int), compare );
-        for(i = 0; i < array_size; ++i) {
-            if(tmparray[i] != i) abort();
-        }
-    }
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
         for(i = 0; i < array_size; ++i) {
