@@ -530,16 +530,6 @@ int demo(size_t array_size) {
     printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
-    fast_shuffle_floatapprox( array, array_size );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (array_size);
-    printf("fast shuffle with float approx cycles per key  %.2f \n", cycles_per_search1);
-
-
-    RDTSC_START(cycles_start);
     fisher_yates((unsigned int *) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);

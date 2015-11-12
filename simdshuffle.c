@@ -1092,6 +1092,101 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         __m256i revshufm = _mm256_load_si256((__m256i *)(reverseshufflemask + 8 * randbyte));
 
+        uint32_t cnt1 = _mm_popcnt_u32(randbyte);
+        uint32_t cnt0 = 8 - cnt1;
+        __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+
+        __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+        __m256i whitethenblack = _mm256_permutevar8x32_epi32(allgrey,revshufm);
+
+        _mm256_storeu_si256 ((__m256i *)(out1), blackthenwhite);
+        _mm256_storeu_si256 ((__m256i *)(out0), whitethenblack);
+        out1 += cnt1;
+        out0 += cnt0;
+        i += 8;
+    }
+    randbitbuf = fastrand64();// 64-bit random value
+    for(; i  < length; i++) {
+
+        /* can't vectorize, not enough space, do it the slow way */
+        int coin = randbitbuf & 1;
+        randbitbuf >>=1;
+        if(coin) {
+            out1[0] = array[0];
+            out1++;
+        } else {
+            out0[0] = array[0];
+            out0++;
+        }
+    }
+    *len1 = out1 - out1begin;
+    *len0 = out0 - out0begin;
+}
+
+void simd_gueron_onepass_shuffle2(uint32_t * array,  size_t length, uint32_t* out1, uint32_t *out0,size_t * len1, size_t * len0) {
+    uint32_t * out0begin = out0;
+    uint32_t * out1begin = out1;
+
+    uint32_t i;
+    uint64_t  randbuf = fastrand64();// 64-bit random value
+    int randbudget = 8;
+
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    for(i = 0; i + 15 < length; ) {
+        uint8_t randbyte1 = randbuf & 0xFF;//getRandomByte();
+        uint8_t randbyte2 = (randbuf>>8) & 0xFF;//getRandomByte();
+        if(randbudget == 2) {
+            randbudget = 8;
+            randbuf = fastrand64();// 64-bit random value
+        } else {
+            randbudget -= 2;
+            randbuf >>=16;
+        }
+        __m256i shufm1 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte1));
+        __m256i shufm2 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte2));
+
+        __m256i revshufm1 = _mm256_load_si256((__m256i *)(reverseshufflemask + 8 * randbyte1));
+        __m256i revshufm2 = _mm256_load_si256((__m256i *)(reverseshufflemask + 8 * randbyte2));
+
+        uint32_t cnt11 = _mm_popcnt_u32(randbyte1); // might be faster with table look-up?
+        uint32_t cnt01 = 8 - cnt11;
+        uint32_t cnt12 = _mm_popcnt_u32(randbyte2); // might be faster with table look-up?
+        uint32_t cnt02 = 8 - cnt12;
+
+        __m256i allgrey1 = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
+        __m256i allgrey2 = _mm256_lddqu_si256((__m256i *)(array + i + 8));// this is all grey
+
+        __m256i blackthenwhite1 = _mm256_permutevar8x32_epi32(allgrey1,shufm1);
+        __m256i blackthenwhite2 = _mm256_permutevar8x32_epi32(allgrey2,shufm2);
+
+        __m256i whitethenblack1 = _mm256_permutevar8x32_epi32(allgrey1,revshufm1);
+        __m256i whitethenblack2 = _mm256_permutevar8x32_epi32(allgrey2,revshufm2);
+
+        _mm256_storeu_si256 ((__m256i *)(out1), blackthenwhite1);
+        out1 += cnt11;
+        _mm256_storeu_si256 ((__m256i *)(out1), blackthenwhite2);
+        out1 += cnt12;
+
+        _mm256_storeu_si256 ((__m256i *)(out0), whitethenblack1);
+        out0 += cnt01;
+        _mm256_storeu_si256 ((__m256i *)(out0), whitethenblack2);
+        out0 += cnt02;
+
+        i += 16;
+    }
+
+    for(; i + 7 < length; ) {
+        uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+        if(randbudget == 1) {
+            randbudget = 8;
+            randbuf = fastrand64();// 64-bit random value
+        } else {
+            randbudget --;
+            randbuf >>=8;
+        }
+        __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+        __m256i revshufm = _mm256_load_si256((__m256i *)(reverseshufflemask + 8 * randbyte));
+
         uint32_t cnt1 = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
         uint32_t cnt0 = 8 - cnt1;
         __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
@@ -1121,6 +1216,7 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
     *len1 = out1 - out1begin;
     *len0 = out0 - out0begin;
 }
+
 
 // improving slightly over Fast Quicksort Implementation Using AVX Instructions
 void simd_fasterthangueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out1, uint32_t *out0,size_t * len1, size_t * len0) {
@@ -1318,6 +1414,48 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
     uint32_t *  bottom = out + length - 1;
     uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
+    while(bottom - top >= 31 ) {
+        uint8_t randbyte1 = randbuf & 0xFF;//getRandomByte();
+        uint8_t randbyte2 = (randbuf>>8) & 0xFF;//getRandomByte();
+
+        if(randbudget == 2) {
+            randbudget = 8;
+            randbuf = fastrand64();// 64-bit random value
+        } else {
+            randbudget -=2;
+            randbuf >>=16;
+        }
+        IACA_START;
+        {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte1));
+            uint32_t num1s = _mm_popcnt_u32(randbyte1);
+            uint32_t num0s = 8 - num1s;
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+            array += 8;
+            // we shuffle allgrey so that the first part is black and the second part is white
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+            _mm_prefetch(top + 32, 1);
+            top += num1s;
+            _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+            _mm_prefetch(bottom - 32, 1);
+            bottom -= num0s;
+        }
+        {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte2));
+            uint32_t num1s = _mm_popcnt_u32(randbyte2);
+            uint32_t num0s = 8 - num1s;
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+            array += 8;
+            // we shuffle allgrey so that the first part is black and the second part is white
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+            _mm_prefetch(top + 32, 1);
+            top += num1s;
+            _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+            _mm_prefetch(bottom - 32, 1);
+            bottom -= num0s;
+        }
+        IACA_END;
+    }
     while(bottom - top >= 15 ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
         if(randbudget == 1) {
@@ -1364,6 +1502,105 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
 }
 
 
+uint32_t simd_twobuffer_onepass_shuffle_prefetch2(uint32_t * array, size_t length, uint32_t * out) {
+    uint32_t * arrayend = array + length;
+    /**
+    0's are written to top, proceeding toward bottom.
+
+    1's are written to bottom, backward toward top.
+    */
+    uint32_t * top = out;
+    uint32_t *  bottom = out + length - 1;
+    uint64_t  randbuf = fastrand64();// 64-bit random value
+    int randbudget = 8;
+    while(bottom - top >= 31 ) {
+        uint8_t randbyte1 = randbuf & 0xFF;//getRandomByte();
+        uint8_t randbyte2 = (randbuf >> 8)& 0xFF;//getRandomByte();
+
+        if(randbudget == 2) {
+            randbudget = 8;
+            randbuf = fastrand64();// 64-bit random value
+        } else {
+            randbudget -= 2;
+            randbuf >>=16;
+        }
+        IACA_START;
+        {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte1));
+            uint32_t num1s = _mm_popcnt_u32(randbyte1);
+            uint32_t num0s = 8 - num1s;
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+            array += 8;
+            // we shuffle allgrey so that the first part is black and the second part is white
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+            _mm_prefetch(top + 32, 1);
+            top += num1s;
+            _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+            _mm_prefetch(bottom - 32, 1);
+            bottom -= num0s;
+        }
+        {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte2));
+            uint32_t num1s = _mm_popcnt_u32(randbyte2);
+            uint32_t num0s = 8 - num1s;
+            __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+            array += 8;
+            // we shuffle allgrey so that the first part is black and the second part is white
+            __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+            _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+            _mm_prefetch(top + 32, 1);
+            top += num1s;
+            _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+            _mm_prefetch(bottom - 32, 1);
+            bottom -= num0s;
+        }
+        IACA_END;
+    }
+
+    while(bottom - top >= 15 ) {
+        uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
+        if(randbudget == 1) {
+            randbudget = 8;
+            randbuf = fastrand64();// 64-bit random value
+        } else {
+            randbudget --;
+            randbuf >>=8;
+        }
+        IACA_START;
+        __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
+        uint32_t num1s = _mm_popcnt_u32(randbyte);
+        uint32_t num0s = 8 - num1s;
+        __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array));// this is all grey
+        array += 8;
+        // we shuffle allgrey so that the first part is black and the second part is white
+        __m256i blackthenwhite = _mm256_permutevar8x32_epi32(allgrey,shufm);
+        _mm256_storeu_si256 ((__m256i *)(top), blackthenwhite);
+        _mm_prefetch(top + 32, 1);
+        top += num1s;
+        _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
+        _mm_prefetch(bottom - 32, 1);
+        bottom -= num0s;
+        IACA_END;
+    }
+    /**
+    * We finish off the rest with a scalar algo.
+    * It could be vectorized for greater speed on small arrays.
+    */
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    //int randbitbudget = 64;
+    for(; array < arrayend; ++array) {
+        int coin = randbitbuf & 1;
+        randbitbuf >>=1;
+        if(coin) {
+            *top = *array;
+            ++top;
+        } else {
+            *bottom = *array;
+            --bottom;
+        }
+    }
+    return bottom - out;
+}
+
 
 uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_t bused) {
     uint32_t candidate;
@@ -1408,11 +1645,11 @@ void  fast_shuffle_floatapprox(int *storage, size_t size) {
     * */
     size_t i;
     for(i=size; i>1; i--) {
-            uint32_t nextpos = (uint32_t)(fastrand64() * i * (1.0/18446744073709551616.0L));//
-            int tmp = storage[i - 1];// likely in cache
-            int val = storage[nextpos]; // could be costly
-            storage[i - 1] = val;
-            storage[nextpos] = tmp; // you might have to read this store later
+        uint32_t nextpos = (uint32_t)(fastrand64() * i * (1.0/18446744073709551616.0L));//
+        int tmp = storage[i - 1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
     }
 }
 
@@ -1531,7 +1768,7 @@ int demo(size_t array_size) {
     int *array = (int *) malloc( array_size * sizeof(int) );
     int *tmparray = (int *) malloc( array_size * sizeof(int) );
     int *tmparray2 = (int *) malloc(array_size* sizeof(int) );
-    int howmany = (array_size < 100000) ? 5:  3;
+    int howmany = (array_size < 100000) ? 3:  1;
     int repeat;
     for(i = 0; i < array_size; i++)
         array[i] = i;
@@ -1683,6 +1920,29 @@ int demo(size_t array_size) {
             ( cycles_final - cycles_start) / (float) (array_size);
         printf("Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
+
+    }
+
+
+    for(repeat = 0; repeat < howmany; repeat++ ) {
+        // reinitialize the tests so we start fresh
+        for(i = 0; i < array_size; ++i) {
+            array[i] = i;
+            tmparray[i] = i;
+            tmparray2[i] = i;
+        }
+
+        RDTSC_START(cycles_start);
+        simd_gueron_onepass_shuffle2((uint32_t*) array, array_size, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
+        bogus += len1 + len2;
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (array_size);
+        printf("Gueron's SIMD (256) 2-by-2 random split  cycles per key  %.2f \n", cycles_per_search1);
+
+
     }
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
@@ -1701,6 +1961,7 @@ int demo(size_t array_size) {
         cycles_per_search1 =
             ( cycles_final - cycles_start) / (float) (array_size);
         printf("Faster-Than-Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
+
     }
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
@@ -1726,6 +1987,7 @@ int demo(size_t array_size) {
         }
 
     }
+
     for(repeat = 0; repeat < howmany; repeat++ ) {
         // reinitialize the tests so we start fresh
         for(i = 0; i < array_size; ++i) {
@@ -1743,6 +2005,54 @@ int demo(size_t array_size) {
         cycles_per_search1 =
             ( cycles_final - cycles_start) / (float) (array_size);
         printf("SIMD two-buffer with prefetch random split  cycles per key  %.2f \n", cycles_per_search1);
+
+        qsort( tmparray, array_size, sizeof(int), compare );
+        for(i = 0; i < array_size; ++i) {
+            if(tmparray[i] != i) abort();
+        }
+    }
+
+    for(repeat = 0; repeat < howmany; repeat++ ) {
+        // reinitialize the tests so we start fresh
+        for(i = 0; i < array_size; ++i) {
+            array[i] = i;
+            tmparray[i] = i;
+            tmparray2[i] = i;
+        }
+
+
+        RDTSC_START(cycles_start);
+        bogus += simd_twobuffer_onepass_shuffle_prefetch2((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (array_size);
+        printf("SIMD two-buffer with prefetch 2-by-2 random split  cycles per key  %.2f \n", cycles_per_search1);
+
+        qsort( tmparray, array_size, sizeof(int), compare );
+        for(i = 0; i < array_size; ++i) {
+            if(tmparray[i] != i) abort();
+        }
+    }
+
+    for(repeat = 0; repeat < howmany; repeat++ ) {
+        // reinitialize the tests so we start fresh
+        for(i = 0; i < array_size; ++i) {
+            array[i] = i;
+            tmparray[i] = i;
+            tmparray2[i] = i;
+        }
+
+
+        RDTSC_START(cycles_start);
+        bogus += simd_twobuffer_onepass_shuffle_prefetch2((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (array_size);
+        printf("SIMD two-buffer with prefetch 2-by-2 random split  cycles per key  %.2f \n", cycles_per_search1);
 
         qsort( tmparray, array_size, sizeof(int), compare );
         for(i = 0; i < array_size; ++i) {
@@ -1832,8 +2142,6 @@ int demo(size_t array_size) {
 int main() {
     init_gen_rand(0); // simd mersenne
     size_t array_size;
-    int r = checkfloatfair();
-    if(!r) return r;
     for(array_size = 16384; array_size < 2147483648; array_size*=8) {
         demo(array_size);
         printf("\n\n");
