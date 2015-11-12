@@ -240,6 +240,34 @@ void  fast_shuffle(int *storage, size_t size) {
     }
 }
 
+// Fisher-Yates shuffle, shuffling an array of integers
+void  fast_shuffle_floatapprox(int *storage, size_t size) {
+  /**
+  supposedly, you can map a 64-bit random int v to a double by doing this:
+       v * (1.0/18446744073709551616.0L);
+      so to get a number between 0 and x, you just multiply this by x?
+  * */
+    size_t i;
+    uint32_t bused = 32 - __builtin_clz(size);
+    uint32_t m2 = 1 << (32- __builtin_clz(size-1));
+    double m2f = m2 * (1.0/18446744073709551616.0L);
+    i=size;
+    randbuf_t  rb;
+    rbinit(&rb);
+    while(i>1) {
+        for (; 2*i>m2; i--) {
+            uint32_t nextpos = (uint32_t)(fastrand64() * m2f);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+        }
+        m2 = m2 >> 1;
+        m2f = m2 * (1.0/18446744073709551616.0L);
+        bused--;
+    }
+}
+
 // Random Permutations on Distributed􏰀 External and Hierarchical Memory by Peter Sanders
 void  shuffle_sanders(int *storage, size_t size, size_t buffersize) {
     size_t i;
@@ -509,6 +537,16 @@ int demo(size_t array_size) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (array_size);
     printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    fast_shuffle_floatapprox( array, array_size );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (array_size);
+    printf("fast shuffle with float approx cycles per key  %.2f \n", cycles_per_search1);
+
 
     RDTSC_START(cycles_start);
     fisher_yates((unsigned int *) array, array_size );
