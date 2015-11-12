@@ -336,7 +336,7 @@ void  shuffle_prefetch4(int *storage, size_t size) {
 
 //Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle4(int *storage, size_t size) {
-    size_t i,j;
+    size_t i;
     i = size;
     if(size > 4) {
         size_t nextposs[4];
@@ -462,11 +462,11 @@ void  shuffle_sanders_prefetch16(int *storage, size_t size, size_t buffersize) {
     free(counter);
 }
 
-int demo(size_t N) {
+int demo(size_t array_size) {
     int bogus = 0;
     size_t i;
     float cycles_per_search1;
-    int *array = (int *) malloc( N * sizeof(int) );
+    int *array = (int *) malloc( array_size * sizeof(int) );
     uint64_t cycles_start, cycles_final;
 #ifdef USE_GENERIC
     printf("Using some basic random number generator\n");
@@ -480,10 +480,10 @@ int demo(size_t N) {
     printf("Using Mersenne Twister\n");
 #endif
 
-    printf("populating array %zu \n",N);
-    printf("log(N) = %d \n",(33 - __builtin_clz(N-1)));
+    printf("populating array %zu \n",array_size);
+    printf("log(array_size) = %d \n",(33 - __builtin_clz(array_size-1)));
 
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
     }
     x=1;
@@ -492,103 +492,103 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    shuffle( array, N );
+    shuffle( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
-    fast_shuffle( array, N );
+    fast_shuffle( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
-    fisher_yates((unsigned int *) array, N );
+    fisher_yates((unsigned int *) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("from https://github.com/axel-bacher/mergeshuffle/ shuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
-    mergeshuffle((unsigned int *)  array, N );
+    mergeshuffle((unsigned int *)  array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("from https://github.com/axel-bacher/mergeshuffle/ mergeshuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
 
 
     RDTSC_START(cycles_start);
-    shuffle4( array, N );
+    shuffle4( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("shuffle4 cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders( array, N, 24000 );
+    shuffle_sanders( array, array_size, 24000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("sanders shuffle cycles per key  %.2f  \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_prefetch2( array, N );
+    shuffle_prefetch2( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("prefetch 2 shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_prefetch4( array, N );
+    shuffle_prefetch4( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("prefetch 4 shuffle cycles per key  %.2f \n", cycles_per_search1);
 
     RDTSC_START(cycles_start);
-    shuffle_prefetch8( array, N );
+    shuffle_prefetch8( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("prefetch 8 shuffle cycles per key  %.2f \n", cycles_per_search1);
 
 
     RDTSC_START(cycles_start);
-    shuffle_prefetch16( array, N );
+    shuffle_prefetch16( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("prefetch 16 shuffle cycles per key  %.2f \n", cycles_per_search1);
     RDTSC_START(cycles_start);
-    shuffle_sanders_prefetch16( array, N, 24000 );
+    shuffle_sanders_prefetch16( array, array_size, 24000 );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("sanders with prefetch 16 shuffle cycles per key  %.2f  \n", cycles_per_search1);
     free(array);
 
@@ -625,13 +625,15 @@ int testfairness(uint32_t maxsize) {
 
 int main( int argc, char **argv ) {
     int bogus = 0;
-    size_t N;
-    int r = testfairness(1000);
+    size_t array_size;
+    int r;
+    init_gen_rand(0); // simd mersenne
+    r = testfairness(1000);
     if(r == 0)
         printf ("good RNG\n");
     else return r;
-    for(N = 4096; N < 2147483648; N*=8) {
-        bogus += demo(N);
+    for(array_size = 4096; array_size < 2147483648; array_size*=8) {
+        bogus += demo(array_size);
         printf("\n");
     }
     return bogus;

@@ -75,12 +75,16 @@ static inline unsigned int rand32() {
     __asm__ __volatile__("0:\n\t" "rdrand %0\n\t" "jnc 0b": "=r" (r) :: "cc");
     return r;
 }
-
+#define MEXP 19937
+#include "SFMT.h"
+#include "SFMT.c" // ugly hack to avoid makefiles
 
 uint32_t fastrand(void) {
 #ifdef USE_GENERIC
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
+#elif USE_SIMDMT
+    return  gen_rand32();
 #elif USE_MT
     return randomMT();
 #elif USE_RAND
@@ -88,7 +92,23 @@ uint32_t fastrand(void) {
 #elif USE_HARDWARE
     return rand32();
 #else
-    return randomMT();
+    return  gen_rand32();
+#endif
+}
+
+uint32_t fastrand64(void) {
+#ifdef USE_GENERIC
+    return fastrand() | (uint64_t) fastrand()<<32);
+#elif USE_SIMDMT
+    return  gen_rand64();
+#elif USE_MT
+    return fastrand() | (uint64_t) fastrand()<<32);
+#elif USE_RAND
+     return fastrand() | (uint64_t) fastrand()<<32);
+#elif USE_HARDWARE
+    return rand64();
+#else
+     return  gen_rand64();
 #endif
 }
 
@@ -108,7 +128,7 @@ void rbinit(randbuf_t * rb) {
   #ifdef USE_HARDWARE
   rb->array = rand64();
   #else
-  rb->array =  fastrand() | ((uint64_t)fastrand << 32);
+  rb->array =  fastrand64();
   #endif
 }
 

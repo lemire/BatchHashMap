@@ -52,15 +52,6 @@
 *********/
 #include "mersenne.c"
 
-// bad, just for testing
-int getRandomBit() {
-    return fastrand() & 1;
-}
-
-// bad, just for testing
-int getRandomByte() {
-    return fastrand() & 0xFF;
-}
 
 void swap(uint32_t * array, uint32_t i, uint32_t j) {
     uint32_t x = array[i];
@@ -68,18 +59,6 @@ void swap(uint32_t * array, uint32_t i, uint32_t j) {
     array[j] = x;
 }
 
-uint32_t inplace_onepass_shuffle(uint32_t * array, size_t length) {
-    int32_t boundary = -1;
-    uint32_t i;
-    for(i = 0; i < length; ++i) {
-        int coin = getRandomBit();
-        if(coin) {
-            boundary++;
-            swap(array, i,boundary);
-        }
-    }
-    return boundary + 1;
-}
 
 
 uint32_t shufflemaskwithflag[256*8]  __attribute__((aligned(0x100)))  = {
@@ -892,10 +871,10 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
     */
     uint32_t boundary = 0;
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
     int randbitbudget = 64;
 
     for(i = 0; i < length; ) {
@@ -903,7 +882,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             /* can't vectorize, not enough space, do it the slow way */
             int coin = randbitbuf & 1;//getRandomBit();
             if(randbitbudget == 1) {
-                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbuf = fastrand64();// 64-bit random value
                 randbitbudget = 64;
             } else {
                 randbitbudget--;
@@ -923,7 +902,7 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
             if(randbudget == 1) {
                 randbudget = 8;
-                randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+                randbuf = fastrand64();// 64-bit random value
             } else {
                 randbudget --;
                 randbuf >>=8;
@@ -957,10 +936,10 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
     */
     uint32_t boundary = 0;
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
     int randbitbudget = 64;
 
     for(i = 0; i < length; ) {
@@ -968,7 +947,7 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
             /* can't vectorize, not enough space, do it the slow way */
             int coin = randbitbuf & 1;//getRandomBit();
             if(randbitbudget == 1) {
-                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbuf = fastrand64();// 64-bit random value
                 randbitbudget = 64;
             } else {
                 randbitbudget--;
@@ -988,7 +967,7 @@ uint32_t simd_inplace_onepass_shuffle_mask(uint32_t * array, size_t length) {
             uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
             if(randbudget == 1) {
                 randbudget = 8;
-                randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+                randbuf = fastrand64();// 64-bit random value
             } else {
                 randbudget --;
                 randbuf >>=8;
@@ -1026,10 +1005,10 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
     */
     uint32_t boundary = 0;
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
     int randbitbudget = 64;
 
     for(i = 0; i < length; ) {
@@ -1037,7 +1016,7 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
             /* can't vectorize, not enough space, do it the slow way */
             int coin = randbitbuf & 1;//getRandomBit();
             if(randbitbudget == 1) {
-                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbuf = fastrand64();// 64-bit random value
                 randbitbudget = 64;
             } else {
                 randbitbudget--;
@@ -1056,7 +1035,7 @@ uint32_t simd_inplace_onepass_shuffle2(uint32_t * array, size_t length) {
             */
             if(randbudget <= 1) {
                 randbudget = 8;
-                randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+                randbuf = fastrand64();// 64-bit random value
             }
             uint8_t randbyte = randbuf & 0xFF;
             uint8_t randbyte2 = (randbuf >> 8) & 0xFF;
@@ -1097,16 +1076,15 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
     uint32_t * out1begin = out1;
 
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
-    int randbitbudget = 64;
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
     for(i = 0; i + 7 < length; ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
         if(randbudget == 1) {
             randbudget = 8;
-            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+            randbuf = fastrand64();// 64-bit random value
         } else {
             randbudget --;
             randbuf >>=8;
@@ -1126,17 +1104,12 @@ void simd_gueron_onepass_shuffle(uint32_t * array,  size_t length, uint32_t* out
         out0 += cnt0;
         i += 8;
     }
-    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+    randbitbuf = fastrand64();// 64-bit random value
     for(; i  < length; i++) {
 
         /* can't vectorize, not enough space, do it the slow way */
-        int coin = randbitbuf & 1;//getRandomBit();
-        //if(randbitbudget == 1) {
-        //    randbitbudget = 64;
-        //} else {
-        //    randbitbudget--;
+        int coin = randbitbuf & 1;
             randbitbuf >>=1;
-        //}
         if(coin) {
             out1[0] = array[0];
             out1++;
@@ -1155,17 +1128,17 @@ void simd_fasterthangueron_onepass_shuffle(uint32_t * array,  size_t length, uin
     uint32_t * out1begin = out1;
 
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
-    int randbitbudget = 64;
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    //int randbitbudget = 64;
     __m256i reverseme = _mm256_set_epi32(0,1,2,3,4,5,6,7);
     for(i = 0; i + 7 < length; ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
         if(randbudget == 1) {
             randbudget = 8;
-            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+            randbuf = fastrand64();// 64-bit random value
         } else {
             randbudget --;
             randbuf >>=8;
@@ -1186,7 +1159,7 @@ void simd_fasterthangueron_onepass_shuffle(uint32_t * array,  size_t length, uin
         out0 += cnt0;
         i += 8;
     }
-    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+    randbitbuf = fastrand64();// 64-bit random value
     for(; i  < length; i++) {
 
         /* can't vectorize, not enough space, do it the slow way */
@@ -1222,10 +1195,10 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
     */
     uint32_t boundary = 0;
     uint32_t i;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 16;
 
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
     int randbitbudget = 64;
 
     for(i = 0; i < length; ) {
@@ -1233,7 +1206,7 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             /* can't vectorize, not enough space, do it the slow way */
             int coin = randbitbuf & 1;//getRandomBit();
             if(randbitbudget == 1) {
-                randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
+                randbitbuf = fastrand64();// 64-bit random value
                 randbitbudget = 64;
             } else {
                 randbitbudget--;
@@ -1253,7 +1226,7 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             uint8_t randbyte = randbuf & 0xF;//getRandomByte();
             if(randbudget == 1) {
                 randbudget = 16;
-                randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+                randbuf = fastrand64();// 64-bit random value
             } else {
                 randbudget --;
                 randbuf >>=4;
@@ -1287,13 +1260,13 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
     */
     uint32_t * top = out;
     uint32_t *  bottom = out + length - 1;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
     while(bottom - top >= 15 ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
         if(randbudget == 1) {
             randbudget = 8;
-            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+            randbuf = fastrand64();// 64-bit random value
         } else {
             randbudget --;
             randbuf >>=8;
@@ -1316,17 +1289,12 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
     * We finish off the rest with a scalar algo.
     * It could be vectorized for greater speed on small arrays.
     */
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
-    int randbitbudget = 64;
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    //int randbitbudget = 64;
     for(; array < arrayend; ++array) {
-        int coin = randbitbuf & 1;//getRandomBit();
-        //if(randbitbudget == 1) {
-        //    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-        //    randbitbudget = 64;
-        //} else {
-        //    randbitbudget--;
-            randbitbuf >>=1;
-        //}
+        int coin = randbitbuf & 1;
+        randbitbuf >>=1;
+
         if(coin) {
             *top = *array;
             ++top;
@@ -1348,13 +1316,13 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
     */
     uint32_t * top = out;
     uint32_t *  bottom = out + length - 1;
-    uint64_t  randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+    uint64_t  randbuf = fastrand64();// 64-bit random value
     int randbudget = 8;
     while(bottom - top >= 15 ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
         if(randbudget == 1) {
             randbudget = 8;
-            randbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
+            randbuf = fastrand64();// 64-bit random value
         } else {
             randbudget --;
             randbuf >>=8;
@@ -1379,17 +1347,11 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
     * We finish off the rest with a scalar algo.
     * It could be vectorized for greater speed on small arrays.
     */
-    uint64_t  randbitbuf = fastrand() | ((uint64_t) fastrand() << 32);// 64-bit random value
-    int randbitbudget = 64;
+    uint64_t  randbitbuf = fastrand64();// 64-bit random value
+    //int randbitbudget = 64;
     for(; array < arrayend; ++array) {
-        int coin = randbitbuf & 1;//getRandomBit();
-        //if(randbitbudget == 1) {
-        //    randbitbuf = fastrand() | ((uint64_t) fastrand()<<32);// 64-bit random value
-        //    randbitbudget = 64;
-        //} else {
-        //    randbitbudget--;
-            randbitbuf >>=1;
-        //}
+        int coin = randbitbuf & 1;
+        randbitbuf >>=1;
         if(coin) {
             *top = *array;
             ++top;
@@ -1439,10 +1401,10 @@ void  fast_shuffle(int *storage, size_t size) {
 uint32_t fairRandomInt(uint32_t size) {
     uint32_t candidate, rkey;
     // such a loop is necessary for the result to be fair
-    rkey = fastrand();
+    rkey = rand();
     candidate = rkey % size;
     while(rkey - candidate  > RAND_MAX - size + 1 ) { // will be predicted as false
-        rkey = fastrand();
+        rkey = rand();
         candidate = rkey % size;
     }
     return candidate;
@@ -1542,15 +1504,15 @@ int compare( const void* a, const void* b)
     else return 1;
 }
 
-int demo(size_t N) {
+int demo(size_t array_size) {
     int bogus = 0;
     size_t i;
     size_t len1, len2;
     float cycles_per_search1;
-    int *array = (int *) malloc( N * sizeof(int) );
-    int *tmparray = (int *) malloc( N * sizeof(int) );
-    int *tmparray2 = (int *) malloc(N* sizeof(int) );
-    for(i = 0; i < N; i++)
+    int *array = (int *) malloc( array_size * sizeof(int) );
+    int *tmparray = (int *) malloc( array_size * sizeof(int) );
+    int *tmparray2 = (int *) malloc(array_size* sizeof(int) );
+    for(i = 0; i < array_size; i++)
         array[i] = i;
     uint64_t cycles_start, cycles_final;
 #ifdef USE_GENERIC
@@ -1565,10 +1527,10 @@ int demo(size_t N) {
     printf("Using Mersenne Twister\n");
 #endif
 
-    printf("populating array %zu \n",N);
-    printf("log(N) = %d \n",(33 - __builtin_clz(N-1)));
+    printf("populating array %zu \n",array_size);
+    printf("log(N) = %d \n",(33 - __builtin_clz(array_size-1)));
 
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1578,102 +1540,85 @@ int demo(size_t N) {
     printf("\n");
 
     // sanity testing
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
-    qsort( tmparray, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( tmparray, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(tmparray[i] != i) abort();
     }
-    qsort( tmparray2, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( tmparray2, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(tmparray2[i] != i) abort();
     }
 
 
-    RDTSC_START(cycles_start);
-    bogus += inplace_onepass_shuffle((uint32_t*) array, N );
-    bogus += array[0];
-    RDTSC_FINAL(cycles_final);
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
-        if(array[i] != i) abort();
-    }
-    cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
-    printf("random split  cycles per key  %.2f \n", cycles_per_search1);
-
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
-        if(array[i] != i) abort();
-    }
-
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    bogus += simd_inplace_onepass_shuffle((uint32_t*) array, N );
+    bogus += simd_inplace_onepass_shuffle((uint32_t*) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
     RDTSC_START(cycles_start);
-    bogus += simd_inplace_onepass_shuffle_mask((uint32_t*) array, N );
+    bogus += simd_inplace_onepass_shuffle_mask((uint32_t*) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD (256) mask random split  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    bogus += simd_inplace_onepass_shuffle2((uint32_t*) array, N );
+    bogus += simd_inplace_onepass_shuffle2((uint32_t*) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD (256) random split 2-by-2 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1681,56 +1626,56 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd128_inplace_onepass_shuffle((uint32_t*) array, N );
+    bogus += simd128_inplace_onepass_shuffle((uint32_t*) array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD (128) random split  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    simd_gueron_onepass_shuffle((uint32_t*) array, N, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
+    simd_gueron_onepass_shuffle((uint32_t*) array, array_size, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
     bogus += len1 + len2;
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    simd_fasterthangueron_onepass_shuffle((uint32_t*) array, N, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
+    simd_fasterthangueron_onepass_shuffle((uint32_t*) array, array_size, (uint32_t*) tmparray, (uint32_t*) tmparray2, &len1, &len2);
     bogus += len1 + len2;
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("Faster-Than-Gueron's SIMD (256) random split  cycles per key  %.2f \n", cycles_per_search1);
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1738,17 +1683,17 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd_simplified((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_simplified((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer simplified (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1756,17 +1701,17 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd_simplified_top((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_simplified_top((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer top simplified (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1774,35 +1719,35 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd_simplified_bottom((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_simplified_bottom((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer bottom simplified (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
     RDTSC_START(cycles_start);
-    bogus += simd_simplified_prefetch((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_simplified_prefetch((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer simplified with prefetch (bogus) random split  cycles per key  %.2f \n", cycles_per_search1);
 
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1810,22 +1755,22 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd_twobuffer_onepass_shuffle((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_twobuffer_onepass_shuffle((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer random split  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( tmparray, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( tmparray, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(tmparray[i] != i) abort();
     }
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1833,21 +1778,21 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    bogus += simd_twobuffer_onepass_shuffle_prefetch((uint32_t*) array, N ,(uint32_t*)  tmparray);
+    bogus += simd_twobuffer_onepass_shuffle_prefetch((uint32_t*) array, array_size ,(uint32_t*)  tmparray);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("SIMD two-buffer with prefetch random split  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( tmparray, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( tmparray, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(tmparray[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1855,20 +1800,20 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    shuffle( array, N );
+    shuffle( array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("normal shuffle cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1876,106 +1821,106 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    fast_shuffle(array, N );
+    fast_shuffle(array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("fast shuffle  cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    heuristic_shuffle(array, N );
+    heuristic_shuffle(array, array_size );
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("heuristic shuffle  cycles per key  %.2f \n", cycles_per_search1);
 
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N ,4096);
+    recursive_shuffle(array, array_size ,4096);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 4096 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N ,16384);
+    recursive_shuffle(array, array_size ,16384);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 16384 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
     }
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N ,32768);
+    recursive_shuffle(array, array_size ,32768);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 32768 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -1983,22 +1928,22 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N ,65536);
+    recursive_shuffle(array, array_size ,65536);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 65536 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -2007,21 +1952,21 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N , 131072);
+    recursive_shuffle(array, array_size , 131072);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 131072 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -2029,21 +1974,21 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N , 262144);
+    recursive_shuffle(array, array_size , 262144);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 262144 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -2051,21 +1996,21 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N , 524288);
+    recursive_shuffle(array, array_size , 524288);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 524288 cycles per key  %.2f \n", cycles_per_search1);
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
 
     // reinitialize the tests so we start fresh
-    for(i = 0; i < N; ++i) {
+    for(i = 0; i < array_size; ++i) {
         array[i] = i;
         tmparray[i] = i;
         tmparray2[i] = i;
@@ -2073,17 +2018,17 @@ int demo(size_t N) {
 
 
     RDTSC_START(cycles_start);
-    recursive_shuffle(array, N , 2097152);
+    recursive_shuffle(array, array_size , 2097152);
     bogus += array[0];
     RDTSC_FINAL(cycles_final);
 
     cycles_per_search1 =
-        ( cycles_final - cycles_start) / (float) (N);
+        ( cycles_final - cycles_start) / (float) (array_size);
     printf("recursive shuffle 2097152 cycles per key  %.2f \n", cycles_per_search1);
 
 
-    qsort( array, N, sizeof(int), compare );
-    for(i = 0; i < N; ++i) {
+    qsort( array, array_size, sizeof(int), compare );
+    for(i = 0; i < array_size; ++i) {
         if(array[i] != i) abort();
     }
     printf("Ok\n");
@@ -2098,9 +2043,10 @@ int demo(size_t N) {
 
 
 int main() {
-    size_t N;
-    for(N = 16384; N < 2147483648; N*=8) {
-        demo(N);
+    init_gen_rand(0); // simd mersenne
+    size_t array_size;
+    for(array_size = 16384; array_size < 2147483648; array_size*=8) {
+        demo(array_size);
         printf("\n\n");
     }
     return 0;
