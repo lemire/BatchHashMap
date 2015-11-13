@@ -907,7 +907,6 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
                 randbudget --;
                 randbuf >>=8;
             }
-            IACA_START;
             __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
             uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
             __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
@@ -918,7 +917,6 @@ uint32_t simd_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             _mm256_storeu_si256 ((__m256i *)(array + i), allwhite);
             boundary += cnt; // might be faster with table look-up?
             i += 8;
-            IACA_END;
         }
     }
     return boundary ;
@@ -1114,6 +1112,8 @@ int32_t simd_inplace_onepass_shuffle4(uint32_t * array, size_t length) {
                 randbudget = 8;
                 randbuf = fastrand64();// 64-bit random value
             }
+            IACA_START;
+
             uint8_t randbyte = randbuf & 0xFF;
             uint8_t randbyte2 = (randbuf >> 8) & 0xFF;
             uint8_t randbyte3 = (randbuf >> 16) & 0xFF;
@@ -1127,9 +1127,9 @@ int32_t simd_inplace_onepass_shuffle4(uint32_t * array, size_t length) {
             __m256i shufm2 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte2));
             uint32_t cnt2 = _mm_popcnt_u32(randbyte2);
             __m256i shufm3 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte3));
-            uint32_t cnt3 = _mm_popcnt_u32(randbyte2);
+            uint32_t cnt3 = _mm_popcnt_u32(randbyte3);
             __m256i shufm4 = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte4));
-            uint32_t cnt4 = _mm_popcnt_u32(randbyte2);
+            uint32_t cnt4 = _mm_popcnt_u32(randbyte4);
 
             __m256i allgrey = _mm256_lddqu_si256((__m256i *)(array + i));// this is all grey
             __m256i allgrey2 = _mm256_lddqu_si256((__m256i *)(array + i +8));// this is all grey
@@ -1161,6 +1161,7 @@ int32_t simd_inplace_onepass_shuffle4(uint32_t * array, size_t length) {
 
             boundary += cnt + cnt2 + cnt3 + cnt4;
             i += 32;
+            IACA_END;
 
         }
     }
@@ -1424,7 +1425,6 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
                 randbudget --;
                 randbuf >>=4;
             }
-            IACA_START;
             __m128i shufm = _mm_load_si128((__m128i *)(shufflemask128 + 16 * randbyte));
             uint32_t cnt = _mm_popcnt_u32(randbyte); // might be faster with table look-up?
             __m128i allgrey = _mm_lddqu_si128((__m128i *)(array + i));// this is all grey
@@ -1435,7 +1435,6 @@ uint32_t simd128_inplace_onepass_shuffle(uint32_t * array, size_t length) {
             _mm_storeu_si128 ((__m128i *)(array + i), allwhite);
             boundary += cnt; // might be faster with table look-up?
             i += 4;
-            IACA_END;
         }
     }
     return boundary ;
@@ -1464,7 +1463,6 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
             randbudget --;
             randbuf >>=8;
         }
-        IACA_START;
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         uint32_t num1s = _mm_popcnt_u32(randbyte);
         uint32_t num0s = 8 - num1s;
@@ -1476,7 +1474,6 @@ uint32_t simd_twobuffer_onepass_shuffle(uint32_t * array, size_t length, uint32_
         top += num1s;
         _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
         bottom -= num0s;
-        IACA_END;
     }
     /**
     * We finish off the rest with a scalar algo.
@@ -1522,7 +1519,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
             randbudget -=2;
             randbuf >>=16;
         }
-        IACA_START;
         {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte1));
             uint32_t num1s = _mm_popcnt_u32(randbyte1);
             uint32_t num0s = 8 - num1s;
@@ -1551,7 +1547,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
             _mm_prefetch(bottom - 32, 1);
             bottom -= num0s;
         }
-        IACA_END;
     }
     while(bottom - top >= 15 ) {
         uint8_t randbyte = randbuf & 0xFF;//getRandomByte();
@@ -1562,7 +1557,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
             randbudget --;
             randbuf >>=8;
         }
-        IACA_START;
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         uint32_t num1s = _mm_popcnt_u32(randbyte);
         uint32_t num0s = 8 - num1s;
@@ -1576,7 +1570,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch(uint32_t * array, size_t length
         _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
         _mm_prefetch(bottom - 32, 1);
         bottom -= num0s;
-        IACA_END;
     }
     /**
     * We finish off the rest with a scalar algo.
@@ -1621,7 +1614,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch2(uint32_t * array, size_t lengt
             randbudget -= 2;
             randbuf >>=16;
         }
-        IACA_START;
         {   __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte1));
             uint32_t num1s = _mm_popcnt_u32(randbyte1);
             uint32_t num0s = 8 - num1s;
@@ -1650,7 +1642,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch2(uint32_t * array, size_t lengt
             _mm_prefetch(bottom - 32, 1);
             bottom -= num0s;
         }
-        IACA_END;
     }
 
     while(bottom - top >= 15 ) {
@@ -1662,7 +1653,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch2(uint32_t * array, size_t lengt
             randbudget --;
             randbuf >>=8;
         }
-        IACA_START;
         __m256i shufm = _mm256_load_si256((__m256i *)(shufflemask + 8 * randbyte));
         uint32_t num1s = _mm_popcnt_u32(randbyte);
         uint32_t num0s = 8 - num1s;
@@ -1676,7 +1666,6 @@ uint32_t simd_twobuffer_onepass_shuffle_prefetch2(uint32_t * array, size_t lengt
         _mm256_storeu_si256 ((__m256i *)(bottom - 7), blackthenwhite);
         _mm_prefetch(bottom - 32, 1);
         bottom -= num0s;
-        IACA_END;
     }
     /**
     * We finish off the rest with a scalar algo.
