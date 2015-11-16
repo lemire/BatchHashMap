@@ -99,11 +99,12 @@ uint32_t fastrand(void) {
 #endif
 }
 
-uint32_t fastrand64(void) {
+uint64_t fastrand64(void) {
 #ifdef USE_GENERIC
     return fastrand() | ((uint64_t) fastrand()<<32);
 #elif USE_SIMDMT
-    return  gen_rand64();
+    return fastrand() | ((uint64_t) fastrand()<<32);
+    //return  gen_rand64();// complains
 #elif USE_MT
     return fastrand() | ((uint64_t) fastrand()<<32);
 #elif USE_PCG
@@ -113,11 +114,17 @@ uint32_t fastrand64(void) {
 #elif USE_HARDWARE
     return rand64();
 #else
-     return  gen_rand64();
+     return fastrand() | ((uint64_t) fastrand()<<32);
+     //return  gen_rand64(); // complains
 #endif
 }
 
-
+// return a double in [0,1)
+double fastranddouble() {
+  uint64_t lrv = fastrand64();
+  double answer =  (double)(lrv  &  0x1FFFFFFFFFFFFFULL)  * (1.0 / (double)(1L << 53));
+  return answer;
+}
 
 struct randombuffer
 {

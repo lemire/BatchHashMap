@@ -1721,6 +1721,19 @@ void  fast_shuffle(int *storage, size_t size) {
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
+void  shuffle_float(int *storage, uint32_t size) {
+    uint32_t i;
+    for (i=size; i>1; i--) {
+        uint32_t nextpos = (uint32_t)(fastranddouble() * i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
+
+// Fisher-Yates shuffle, shuffling an array of integers
 void  fast_shuffle_floatapprox(int *storage, size_t size) {
     /**
     supposedly, you can map a 64-bit random int v to a double by doing this:
@@ -2188,6 +2201,29 @@ int demo(size_t array_size) {
         cycles_per_search1 =
             ( cycles_final - cycles_start) / (float) (array_size);
         printf("fast shuffle  cycles per key  %.2f \n", cycles_per_search1);
+
+        qsort( array, array_size, sizeof(int), compare );
+        for(i = 0; i < array_size; ++i) {
+            if(array[i] != i) abort();
+        }
+    }
+    for(repeat = 0; repeat < howmany; repeat++ ) {
+        // reinitialize the tests so we start fresh
+        for(i = 0; i < array_size; ++i) {
+            array[i] = i;
+            tmparray[i] = i;
+            tmparray2[i] = i;
+        }
+
+
+        RDTSC_START(cycles_start);
+        shuffle_float(array, array_size );
+        bogus += array[0];
+        RDTSC_FINAL(cycles_final);
+
+        cycles_per_search1 =
+            ( cycles_final - cycles_start) / (float) (array_size);
+        printf("shuffle with floating point numbers cycles per key  %.2f \n", cycles_per_search1);
 
         qsort( array, array_size, sizeof(int), compare );
         for(i = 0; i < array_size; ++i) {
