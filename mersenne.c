@@ -78,15 +78,18 @@ static inline unsigned int rand32() {
 #define MEXP 19937
 #include "SFMT.h"
 #include "SFMT.c" // ugly hack to avoid makefiles
-
+#include "pcg_basic.h"
+#include "pcg_basic.c" // ugly hack to avoid makefiles
 uint32_t fastrand(void) {
 #ifdef USE_GENERIC
     x = ((x * 1103515245) + 12345) & 0x7fffffff;
     return x;
 #elif USE_SIMDMT
     return  gen_rand32();
-#elif USE_MT
-    return randomMT();
+#elif USE_PCG
+    return pcg32_random();
+#elif USE_RAND
+    return rand();
 #elif USE_RAND
     return rand();
 #elif USE_HARDWARE
@@ -98,13 +101,15 @@ uint32_t fastrand(void) {
 
 uint32_t fastrand64(void) {
 #ifdef USE_GENERIC
-    return fastrand() | (uint64_t) fastrand()<<32);
+    return fastrand() | ((uint64_t) fastrand()<<32);
 #elif USE_SIMDMT
     return  gen_rand64();
 #elif USE_MT
-    return fastrand() | (uint64_t) fastrand()<<32);
+    return fastrand() | ((uint64_t) fastrand()<<32);
+#elif USE_PCG
+     return fastrand() | ((uint64_t) fastrand()<<32);
 #elif USE_RAND
-     return fastrand() | (uint64_t) fastrand()<<32);
+     return fastrand() | ((uint64_t) fastrand()<<32);
 #elif USE_HARDWARE
     return rand64();
 #else

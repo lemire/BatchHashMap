@@ -1863,6 +1863,8 @@ int demo(size_t array_size) {
     printf("Using some basic random number generator\n");
 #elif USE_SIMDMT
     printf("Using SIMD Mersenne Twister\n");
+#elif USE_PCG
+    printf("Using PCG\n");
 #elif USE_MT
     printf("Using Mersenne Twister\n");
 #elif USE_RAND

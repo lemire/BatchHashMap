@@ -493,6 +493,8 @@ int demo(size_t array_size) {
     printf("Using SIMD Mersenne Twister\n");
 #elif USE_MT
     printf("Using Mersenne Twister\n");
+#elif USE_PCG
+    printf("Using PCG\n");
 #elif USE_RAND
     printf("Using rand\n");
 #elif USE_HARDWARE
