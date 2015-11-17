@@ -64,6 +64,7 @@
 
 #include "pcg_basic.c"
 
+// probably not fair
 uint32_t ranged_random_recycle_mult(uint32_t range) {
     uint64_t rotations = 0;
     uint64_t random32bit = pcg32_random();
@@ -206,6 +207,6 @@ int main(int argc, char **argv) {
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
     //TIMED_TEST(loop_recycle_mult(count, range, output), count);// probably unfair
     TIMED_TEST(loop_mod(count, range, output), count);
-    TIMED_TEST(loop_recycle_mod(count, range, output), count);
+    //TIMED_TEST(loop_recycle_mod(count, range, output), count);
     TIMED_TEST(loop_pcg32(count, range, output), count);
 }
