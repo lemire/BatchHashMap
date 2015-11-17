@@ -138,7 +138,6 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
           leftover = (uint32_t) multiresult;
       } while (leftover > threshold);
     }
-    if(leftover > threshold ) printf("bgfgdf");
     return candidate; // [0, range)
 }
 
