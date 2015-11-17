@@ -182,6 +182,7 @@ uint32_t fairRandomInt(uint32_t size) {
     // such a loop is necessary for the result to be fair
     rkey = fastrand();
     candidate = rkey % size;
+    // NOTE: RAND_MAX should be actual max value
     while(rkey - candidate  > RAND_MAX - size + 1 ) { // will be predicted as false
       rkey = fastrand();
       candidate = rkey % size;
