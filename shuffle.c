@@ -220,6 +220,42 @@ uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_
     return candidate;
 }
 
+
+
+uint32_t ranged_random_mult_lazy(uint32_t range) {
+    uint64_t random32bit, candidate, multiresult;
+    uint32_t leftover;
+    uint32_t threshold;
+    random32bit = fastrand();
+    multiresult = random32bit * range;
+    candidate =  multiresult >> 32;
+    leftover = (uint32_t) multiresult;
+
+    if(leftover > (uint32_t)( - range) ) {
+      threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
+      do {
+          random32bit = fastrand();
+          multiresult = random32bit * range;
+          candidate =  multiresult >> 32;
+          leftover = (uint32_t) multiresult;
+      } while (leftover > threshold);
+    }
+    return candidate; // [0, range)
+}
+
+
+// Fisher-Yates shuffle, shuffling an array of integers
+void  shuffle_fastfog(int *storage, uint32_t size) {
+    uint32_t i;
+    for (i=size; i>1; i--) {
+        uint32_t nextpos = ranged_random_mult_lazy(i);
+        int tmp = storage[i-1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
+    }
+}
+
 // Fisher-Yates shuffle, shuffling an array of integers
 void  fast_shuffle(int *storage, size_t size) {
     size_t i;
@@ -563,6 +599,18 @@ int demo(size_t array_size) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (array_size);
     printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+    RDTSC_START(cycles_start);
+    shuffle_fastfog( array, array_size );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (array_size);
+    printf("fast Fog shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+
+
 
     RDTSC_START(cycles_start);
     fisher_yates((unsigned int *) array, array_size );
