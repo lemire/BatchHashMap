@@ -152,6 +152,15 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     return multiresult >> 32; // [0, range)
 }
 
+// just to test how fast it could get in principle
+uint32_t ranged_random_mult_fake(uint32_t range) {
+    uint64_t random32bit, multiresult;
+    random32bit = pcg32_random();
+    multiresult = random32bit * range;
+    return multiresult >> 32; // [0, range)
+}
+
+
 uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
     uint64_t random32bit,  multiresult;
     uint32_t leftover;
@@ -245,6 +254,11 @@ void loop_mult_linear(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+void loop_mult_fake_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_mult_fake(range  + i);
+    }
+}
 
 void loop_mult_lazy_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
@@ -304,6 +318,11 @@ void loop_mult(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+void loop_mult_fake(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_mult_fake(range);
+    }
+}
 
 void loop_mult_lazy(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
@@ -368,6 +387,7 @@ int main(int argc, char **argv) {
     printf("\n repeated calls with range value %llu \n",(unsigned long long )range);
 
     TIMED_TEST(loop_mult(count, range, output), count);
+    TIMED_TEST(loop_mult_fake(count, range, output), count);
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2(count, range, output), count);
@@ -378,6 +398,7 @@ int main(int argc, char **argv) {
     printf("\n range value will increment starting at %llu and going toward %llu \n",(unsigned long long )range,(unsigned long long )range+count);
 
     TIMED_TEST(loop_mult_linear(count, range, output), count);
+    TIMED_TEST(loop_mult_fake_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazy_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2_linear(count, range, output), count);
