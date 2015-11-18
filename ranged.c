@@ -111,6 +111,12 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
     uint64_t random32bit,  multiresult;
     uint32_t leftover, threshold;
     if((range & ( range - 1 )) == 0) return pcg32_random() & (range - 1);
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
     threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
     do {
         random32bit = pcg32_random();
