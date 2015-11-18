@@ -223,14 +223,19 @@ uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
-    uint32_t leftover;
-    uint32_t threshold;
-#ifdef __BMI2__
-    uint32_t lsbset =  _pdep_u32(1,range);
-#else
-    uint32_t lsbset =  0; // range & (~(range-1)); // too expensive
-#endif    
+    uint32_t leftover, threshold, lsbset;
     random32bit = fastrand();
+    if(range >0x80000000) {// if range > 1<<31
+      while(random32bit >= range) {
+        random32bit = pcg32_random();
+      }
+      return random32bit; // [0, range)
+    }
+    #ifdef __BMI2__
+        lsbset =  _pdep_u32(1,range);
+    #else
+        lsbset =  0; // range & (~(range-1)); // too expensive
+    #endif
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;

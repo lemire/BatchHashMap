@@ -124,12 +124,19 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
     uint32_t threshold;
-#ifdef __BMI2__
-    uint32_t lsbset =  _pdep_u32(1,range);
-#else
-    uint32_t lsbset =  0; // range & (~(range-1)); // too expensive
-#endif
+    uint32_t lsbset;
     random32bit = pcg32_random();
+    if(range >0x80000000) {// if range > 1<<31
+      while(random32bit >= range) {
+        random32bit = pcg32_random();
+      }
+      return random32bit; // [0, range)
+    }
+    #ifdef __BMI2__
+        lsbset =  _pdep_u32(1,range);
+    #else
+        lsbset =  0; // range & (~(range-1)); // too expensive
+    #endif
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
@@ -150,6 +157,12 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
     uint32_t leftover;
     uint32_t threshold;
     random32bit = pcg32_random();
+    if(range >0x80000000) {// if range > 1<<31
+      while(random32bit >= range) {
+        random32bit = pcg32_random();
+      }
+      return random32bit; // [0, range)
+    }
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
@@ -273,14 +286,14 @@ void loop_pcg32(size_t count, uint32_t range, uint32_t *output) {
 int main(int argc, char **argv) {
     uint32_t range = DEFAULT_RANGE;
     if (argc > 1) range = atoi(argv[1]);
-    printf("range = %d \n", range);
+    printf("range = %llu \n", (unsigned long long )range);
 
     uint64_t cycles_start, cycles_final,cycles_diff;
 
     uint32_t output[LOOP_COUNT];
     size_t count = LOOP_COUNT;
     memset(output, 0, count);
-    printf("\n repeated calls with range value %d \n",range);
+    printf("\n repeated calls with range value %llu \n",(unsigned long long )range);
 
     TIMED_TEST(loop_mult(count, range, output), count);
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
@@ -288,7 +301,7 @@ int main(int argc, char **argv) {
      TIMED_TEST(loop_mod(count, range, output), count);
     TIMED_TEST(loop_pcg32(count, range, output), count);
 
-    printf("\n range value will increment starting at %d and going toward %lu \n",range,range+count);
+    printf("\n range value will increment starting at %llu and going toward %llu \n",(unsigned long long )range,(unsigned long long )range+count);
 
     TIMED_TEST(loop_mult_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazy_linear(count, range, output), count);
