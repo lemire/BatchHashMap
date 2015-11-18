@@ -1726,7 +1726,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
     uint32_t threshold;
-    uint32_t lsbset = range & (~(range-1));
+    uint32_t lsbset = range & (~(range-1));;// could be done with _pdep_u32(1,range); using 1 muop
     random32bit = fastrand();
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
