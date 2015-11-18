@@ -135,7 +135,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     #ifdef __BMI2__
         lsbset =  _pdep_u32(1,range);
     #else
-        lsbset =  0; // range & (~(range-1)); // too expensive
+        lsbset =  range & (~(range-1)); // too expensive
     #endif
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
