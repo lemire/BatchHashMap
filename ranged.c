@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <x86intrin.h>
 #define DEFAULT_RANGE 100
 #define LOOP_COUNT 1000
 #define TIMING_REPEATS 10000
@@ -124,12 +124,16 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
     uint32_t threshold;
-    uint32_t lsbset =  range & (~(range-1));// could be done with _pdep_u32(1,range); using 1 muop
+#ifndef __BMI2__
+    uint32_t lsbset =  _pdep_u32(1,range);
+#else
+    uint32_t lsbset = range & (~(range-1));
+#endif
     random32bit = pcg32_random();
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
-
+//if(_pdep_u32(1,range) != (range & (~(range-1)))) printf("fdsfds");
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
         threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
         do {
