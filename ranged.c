@@ -127,7 +127,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
 #ifdef __BMI2__
     uint32_t lsbset =  _pdep_u32(1,range);
 #else
-    uint32_t lsbset =  range & (~(range-1));
+    uint32_t lsbset =  0; // range & (~(range-1)); // too expensive
 #endif
     random32bit = pcg32_random();
     multiresult = random32bit * range;
@@ -296,6 +296,7 @@ int main(int argc, char **argv) {
      TIMED_TEST(loop_mod_linear(count, range, output), count);
     TIMED_TEST(loop_pcg32_linear(count, range, output), count);
 
+    printf("\n Hint: try large powers of two, ./ranged 1073741824 \n");
     return 0;
 
 }
