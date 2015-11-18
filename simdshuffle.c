@@ -1721,16 +1721,18 @@ void  fast_shuffle(int *storage, size_t size) {
 }
 
 
+
 uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
     uint32_t threshold;
+    uint32_t lsbset = range & (~(range-1));
     random32bit = fastrand();
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
 
-    if(leftover > (uint32_t)( - range) ) {
+    if(leftover >= lsbset - range  ) {
       threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
       do {
           random32bit = fastrand();
@@ -1741,7 +1743,6 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     }
     return candidate; // [0, range)
 }
-
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle_fastfog(int *storage, uint32_t size) {
