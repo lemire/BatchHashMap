@@ -108,21 +108,20 @@ uint32_t __attribute__ ((noinline)) ranged_random_recycle_mod(uint32_t range) {
 }
 
 uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
-    uint64_t random32bit, candidate, multiresult;
+    uint64_t random32bit,  multiresult;
     uint32_t leftover, threshold;
     if((range & ( range - 1 )) == 0) return pcg32_random() & (range - 1);
     threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
     do {
         random32bit = pcg32_random();
         multiresult = random32bit * range;
-        candidate =  multiresult >> 32;
         leftover = (uint32_t) multiresult;
     } while (leftover > threshold);
-    return candidate; // [0, range)
+    return multiresult >> 32; // [0, range)
 }
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
-    uint64_t random32bit, candidate, multiresult;
+    uint64_t random32bit, multiresult;
     uint32_t leftover;
     uint32_t threshold;
     uint32_t lsbset;
@@ -139,22 +138,20 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     lsbset =   range & (~(range-1)); // too expensive
 #endif
     multiresult = random32bit * range;
-    candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
         threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
-            candidate =  multiresult >> 32;
             leftover = (uint32_t) multiresult;
         } while (leftover > threshold);
     }
-    return candidate; // [0, range)
+    return multiresult >> 32; // [0, range)
 }
 
 uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
-    uint64_t random32bit, candidate, multiresult;
+    uint64_t random32bit,  multiresult;
     uint32_t leftover;
     uint32_t threshold;
     random32bit = pcg32_random();
@@ -165,7 +162,6 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
         return random32bit; // [0, range)
     }
     multiresult = random32bit * range;
-    candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
         if((range & (range - 1)) == 0) {
@@ -176,15 +172,14 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
-            candidate =  multiresult >> 32;
             leftover = (uint32_t) multiresult;
         } while (leftover > threshold);
     }
-    return candidate; // [0, range)
+    return multiresult >> 32; // [0, range)
 }
 
 uint32_t ranged_random_mult_lazycheckpower2(uint32_t range) {
-    uint64_t random32bit, candidate, multiresult;
+    uint64_t random32bit, multiresult;
     uint32_t leftover;
     uint32_t threshold;
     random32bit = pcg32_random();
@@ -198,18 +193,16 @@ uint32_t ranged_random_mult_lazycheckpower2(uint32_t range) {
         return random32bit; // [0, range)
     }
     multiresult = random32bit * range;
-    candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
         threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
-            candidate =  multiresult >> 32;
             leftover = (uint32_t) multiresult;
         } while (leftover > threshold);
     }
-    return candidate; // [0, range)
+    return multiresult >> 32; // [0, range)
 }
 
 
@@ -224,7 +217,7 @@ uint32_t __attribute__ ((noinline)) ranged_random_mod(uint32_t range) {
 
 // inspired by golang
 uint32_t __attribute__ ((noinline)) ranged_random_modgolang(uint32_t range) {
-    uint32_t random32bit, candidate, maxval;
+    uint32_t random32bit, maxval;
     if((range & (range - 1)) == 0) {
         return pcg32_random() & (range - 1);
     }

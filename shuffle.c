@@ -222,32 +222,30 @@ uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_
 
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
-    uint64_t random32bit, candidate, multiresult;
-    uint32_t leftover;
-    uint32_t threshold;
-    random32bit = pcg32_random();
-    if((range & (range - 1)) == 0) {
-        return random32bit & (range - 1);
-    }
-    if(range >0x80000000) {// if range > 1<<31
-        while(random32bit >= range) {
-            random32bit = pcg32_random();
-        }
-        return random32bit; // [0, range)
-    }
-    multiresult = random32bit * range;
-    candidate =  multiresult >> 32;
-    leftover = (uint32_t) multiresult;
-    if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
-        threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
-        do {
-            random32bit = pcg32_random();
-            multiresult = random32bit * range;
-            candidate =  multiresult >> 32;
-            leftover = (uint32_t) multiresult;
-        } while (leftover > threshold);
-    }
-    return candidate; // [0, range)
+  uint64_t random32bit, multiresult;
+  uint32_t leftover;
+  uint32_t threshold;
+  random32bit = pcg32_random();
+  if((range & (range - 1)) == 0) {
+      return random32bit & (range - 1);
+  }
+  if(range >0x80000000) {// if range > 1<<31
+      while(random32bit >= range) {
+          random32bit = pcg32_random();
+      }
+      return random32bit; // [0, range)
+  }
+  multiresult = random32bit * range;
+  leftover = (uint32_t) multiresult;
+  if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
+      threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
+      do {
+          random32bit = pcg32_random();
+          multiresult = random32bit * range;
+          leftover = (uint32_t) multiresult;
+      } while (leftover > threshold);
+  }
+  return multiresult >> 32; // [0, range)
 }
 
 
