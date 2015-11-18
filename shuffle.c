@@ -225,7 +225,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
     uint32_t threshold;
-#ifndef __BMI2__
+#ifdef __BMI2__
     uint32_t lsbset =  _pdep_u32(1,range);
 #else
     uint32_t lsbset = range & (~(range-1));
