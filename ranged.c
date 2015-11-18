@@ -132,11 +132,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
         }
         return random32bit; // [0, range)
     }
-#ifdef __BMI2__
-    lsbset =  _pdep_u32(1,range);
-#else
-    lsbset =   range & (~(range-1)); // too expensive
-#endif
+    lsbset =  _blsi_u32(range);//  range & (~(range-1));
     multiresult = random32bit * range;
     leftover = (uint32_t) multiresult;
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
