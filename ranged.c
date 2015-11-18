@@ -168,7 +168,11 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
-        threshold = (uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
+        if((range & (range - 1)) == 0) {
+          return pcg32_random() & (range - 1);
+        }
+        threshold = 0xFFFFFFFF / range * range - 1;
+        //threshold = (uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
