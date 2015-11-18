@@ -341,7 +341,7 @@ int main(int argc, char **argv) {
     if(range < (1<<31)) TIMED_TEST(loop_modgolang_linear(count, range, output), count);
     TIMED_TEST(loop_pcg32_linear(count, range, output), count);
 
-    printf("\n Hint: try large powers of two, ./ranged 1073741824 \n");
+    printf("\n Hint: try large powers of two, ./ranged 1073741824 or near powers of two like 805306368 \n");
     return 0;
 
 }
