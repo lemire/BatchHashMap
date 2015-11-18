@@ -241,7 +241,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     leftover = (uint32_t) multiresult;
 
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
-      threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
+      threshold = (uint32_t)((1ULL<<32)/range) * range  - 1;
       do {
           random32bit = fastrand();
           multiresult = random32bit * range;

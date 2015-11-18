@@ -110,7 +110,7 @@ uint32_t __attribute__ ((noinline)) ranged_random_recycle_mod(uint32_t range) {
 uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
     uint32_t leftover;
-    uint32_t threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
+    uint32_t threshold = (uint32_t)((1ULL<<32)/range) * range  - 1;
     do {
         random32bit = pcg32_random();
         multiresult = random32bit * range;
@@ -141,7 +141,7 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
-        threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
+        threshold = (uint32_t)((1ULL<<32)/range) * range  - 1;
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
@@ -167,7 +167,7 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
-        threshold = (uint32_t)((1ULL<<32)/range * range  - 1);
+        threshold = (uint32_t)((1ULL<<32)/range) * range  - 1;
         do {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
@@ -181,12 +181,29 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
 
 
 uint32_t __attribute__ ((noinline)) ranged_random_mod(uint32_t range) {
-    uint64_t random32bit, candidate;
+    uint32_t random32bit, candidate;
     do {
         random32bit = pcg32_random();
-        candidate = (uint32_t)(random32bit) % range;
+        candidate = random32bit % range;
     } while (random32bit - candidate  > UINT32_MAX - range + 1);
     return candidate; // [0, range)
+}
+
+// inspired by golang
+uint32_t __attribute__ ((noinline)) ranged_random_modgolang(uint32_t range) {
+    uint32_t random32bit, candidate, maxval;
+    if((range & (range - 1)) == 0) {
+      return pcg32_random() & (range - 1);
+    }
+    if(range >= (1U<<31)) {
+      abort(); // not good
+    }
+    maxval = (1U<<31) - 1 - ((1U<<31) % range);
+    random32bit = pcg32_random() & 0x7FFFFFFF;
+    while(random32bit > maxval) {
+      random32bit = pcg32_random() & 0x7FFFFFFF;
+    }
+    return random32bit % range; // [0, range)
 }
 
 uint32_t __attribute__ ((noinline)) ranged_random_pcg32_boundedrand(uint32_t range) {
@@ -216,6 +233,12 @@ void loop_mult_lazynopower2_linear(size_t count, uint32_t range, uint32_t *outpu
 void loop_mod_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mod(range + i );
+    }
+}
+
+void loop_modgolang_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_modgolang(range + i );
     }
 }
 
@@ -265,6 +288,13 @@ void loop_mod(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+
+void loop_modgolang(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_modgolang(range);
+    }
+}
+
 void loop_recycle_mult(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_recycle_mult(range);
@@ -298,7 +328,8 @@ int main(int argc, char **argv) {
     TIMED_TEST(loop_mult(count, range, output), count);
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2(count, range, output), count);
-     TIMED_TEST(loop_mod(count, range, output), count);
+    TIMED_TEST(loop_mod(count, range, output), count);
+    if(range < (1<<31)) TIMED_TEST(loop_modgolang(count, range, output), count);
     TIMED_TEST(loop_pcg32(count, range, output), count);
 
     printf("\n range value will increment starting at %llu and going toward %llu \n",(unsigned long long )range,(unsigned long long )range+count);
@@ -306,7 +337,8 @@ int main(int argc, char **argv) {
     TIMED_TEST(loop_mult_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazy_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2_linear(count, range, output), count);
-     TIMED_TEST(loop_mod_linear(count, range, output), count);
+    TIMED_TEST(loop_mod_linear(count, range, output), count);
+    if(range < (1<<31)) TIMED_TEST(loop_modgolang_linear(count, range, output), count);
     TIMED_TEST(loop_pcg32_linear(count, range, output), count);
 
     printf("\n Hint: try large powers of two, ./ranged 1073741824 \n");
