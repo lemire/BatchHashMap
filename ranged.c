@@ -128,16 +128,16 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint32_t lsbset;
     random32bit = pcg32_random();
     if(range >0x80000000) {// if range > 1<<31
-      while(random32bit >= range) {
-        random32bit = pcg32_random();
-      }
-      return random32bit; // [0, range)
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
     }
-    #ifdef __BMI2__
-        lsbset =  _pdep_u32(1,range);
-    #else
-        lsbset =   range & (~(range-1)); // too expensive
-    #endif
+#ifdef __BMI2__
+    lsbset =  _pdep_u32(1,range);
+#else
+    lsbset =   range & (~(range-1)); // too expensive
+#endif
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
@@ -159,17 +159,17 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
     uint32_t threshold;
     random32bit = pcg32_random();
     if(range >0x80000000) {// if range > 1<<31
-      while(random32bit >= range) {
-        random32bit = pcg32_random();
-      }
-      return random32bit; // [0, range)
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
     }
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
         if((range & (range - 1)) == 0) {
-          return pcg32_random() & (range - 1);
+            return pcg32_random() & (range - 1);
         }
         threshold = 0xFFFFFFFF / range * range - 1;
         //threshold = (uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
@@ -189,13 +189,13 @@ uint32_t ranged_random_mult_lazycheckpower2(uint32_t range) {
     uint32_t threshold;
     random32bit = pcg32_random();
     if((range & (range - 1)) == 0) {
-      return random32bit & (range - 1);
+        return random32bit & (range - 1);
     }
     if(range >0x80000000) {// if range > 1<<31
-      while(random32bit >= range) {
-        random32bit = pcg32_random();
-      }
-      return random32bit; // [0, range)
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
     }
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
@@ -226,15 +226,15 @@ uint32_t __attribute__ ((noinline)) ranged_random_mod(uint32_t range) {
 uint32_t __attribute__ ((noinline)) ranged_random_modgolang(uint32_t range) {
     uint32_t random32bit, candidate, maxval;
     if((range & (range - 1)) == 0) {
-      return pcg32_random() & (range - 1);
+        return pcg32_random() & (range - 1);
     }
     if(range >= (1U<<31)) {
-      abort(); // not good
+        abort(); // not good
     }
     maxval = (1U<<31) - 1 - ((1U<<31) % range);
     random32bit = pcg32_random() & 0x7FFFFFFF;
     while(random32bit > maxval) {
-      random32bit = pcg32_random() & 0x7FFFFFFF;
+        random32bit = pcg32_random() & 0x7FFFFFFF;
     }
     return random32bit % range; // [0, range)
 }

@@ -183,8 +183,8 @@ uint32_t fairRandomInt(uint32_t size) {
     candidate = rkey % size;
     // NOTE: RAND_MAX should be actual max value
     while(rkey - candidate  > RAND_MAX - size + 1 ) { // will be predicted as false
-      rkey = fastrand();
-      candidate = rkey % size;
+        rkey = fastrand();
+        candidate = rkey % size;
     }
     return candidate;
 }
@@ -223,31 +223,29 @@ uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, candidate, multiresult;
-    uint32_t leftover, threshold, lsbset;
-    random32bit = fastrand();
-    if(range >0x80000000) {// if range > 1<<31
-      while(random32bit >= range) {
-        random32bit = pcg32_random();
-      }
-      return random32bit; // [0, range)
+    uint32_t leftover;
+    uint32_t threshold;
+    random32bit = pcg32_random();
+    if((range & (range - 1)) == 0) {
+        return random32bit & (range - 1);
     }
-    #ifdef __BMI2__
-        lsbset =  _pdep_u32(1,range);
-    #else
-        lsbset =  0; // range & (~(range-1)); // too expensive
-    #endif
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
     multiresult = random32bit * range;
     candidate =  multiresult >> 32;
     leftover = (uint32_t) multiresult;
-
-    if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
-      threshold = (uint32_t)((1ULL<<32)/range) * range  - 1;
-      do {
-          random32bit = fastrand();
-          multiresult = random32bit * range;
-          candidate =  multiresult >> 32;
-          leftover = (uint32_t) multiresult;
-      } while (leftover > threshold);
+    if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
+        threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
+        do {
+            random32bit = pcg32_random();
+            multiresult = random32bit * range;
+            candidate =  multiresult >> 32;
+            leftover = (uint32_t) multiresult;
+        } while (leftover > threshold);
     }
     return candidate; // [0, range)
 }
@@ -300,20 +298,20 @@ void  shuffle_float(int *storage, uint32_t size) {
 
 // Fisher-Yates shuffle, shuffling an array of integers
 void  fast_shuffle_floatapprox(int *storage, size_t size) {
-  /**
-  supposedly, you can map a 64-bit random int v to a double by doing this:
-       v * (1.0/18446744073709551616.0L);
-      so to get a number between 0 and x, you just multiply this by x?
+    /**
+    supposedly, you can map a 64-bit random int v to a double by doing this:
+         v * (1.0/18446744073709551616.0L);
+        so to get a number between 0 and x, you just multiply this by x?
 
-      But this is bogus.
-  * */
+        But this is bogus.
+    * */
     size_t i;
     for(i=size; i>1; i--) {
-            uint32_t nextpos = (uint32_t)(fastrand64() * i * (1.0/18446744073709551616.0L));//
-            int tmp = storage[i - 1];// likely in cache
-            int val = storage[nextpos]; // could be costly
-            storage[i - 1] = val;
-            storage[nextpos] = tmp; // you might have to read this store later
+        uint32_t nextpos = (uint32_t)(fastrand64() * i * (1.0/18446744073709551616.0L));//
+        int tmp = storage[i - 1];// likely in cache
+        int val = storage[nextpos]; // could be costly
+        storage[i - 1] = val;
+        storage[nextpos] = tmp; // you might have to read this store later
     }
 }
 
