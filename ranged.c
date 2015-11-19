@@ -131,7 +131,7 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
 }
 
 
-#define MUL64(rh,rl,i1,i2) asm ("mulq %3" : "=a"(rl), "=d"(rh) : "a"(i1), "r"(i2) : "cc")
+#define MUL64(rh,rl,i1,i2) __asm ("mulq %3" : "=a"(rl), "=d"(rh) : "a"(i1), "r"(i2) : "cc")
 
 uint32_t __attribute__ ((noinline)) ranged_random_mult64(uint32_t range) {
     uint64_t random64bit = pcg64_random() ;
