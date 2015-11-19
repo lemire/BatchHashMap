@@ -1,4 +1,5 @@
 // icc -std=gnu99 -Wall -O3 -g -march=native ranged.c -o ranged
+// gcc -march=native -O3 -std=gnu99 -o ranged  ranged.c
 // usage: ranged [range]
 
 #include <sys/types.h>
@@ -10,6 +11,9 @@
 #define DEFAULT_RANGE 100
 #define LOOP_COUNT 1000
 #define TIMING_REPEATS 10000
+#include "pcg-global-32.c"
+#include "pcg-global-64.c"
+
 
 #define RDTSC_START(cycles)                                     \
     do {                                                        \
@@ -62,7 +66,7 @@
     } while (0)
 
 
-#include "pcg_basic.c"
+//#include "pcg_basic.c"
 
 // probably not fair
 uint32_t __attribute__ ((noinline)) ranged_random_recycle_mult(uint32_t range) {
@@ -126,10 +130,15 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
     return multiresult >> 32; // [0, range)
 }
 
+
+#define MUL64(rh,rl,i1,i2) asm ("mulq %3" : "=a"(rl), "=d"(rh) : "a"(i1), "r"(i2) : "cc")
+
 uint32_t __attribute__ ((noinline)) ranged_random_mult64(uint32_t range) {
-    uint64_t random64bit = pcg32_random() | ((uint64_t) pcg32_random() << 32);
+    uint64_t random64bit = pcg64_random() ;
     uint64_t high;
-    uint64_t  low = _mulx_u64(random64bit,range,&high);
+    uint64_t  low;
+    MUL64(high,low,range,random64bit);
+    // = _mulx_u64(random64bit,range,&high);
     return (uint32_t) high;
 }
 
@@ -146,7 +155,11 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
         }
         return random32bit; // [0, range)
     }
-    lsbset =  _blsi_u32(range);//  range & (~(range-1));
+#ifdef __BMI__
+    lsbset =  _blsi_u32(range);
+#else
+    lsbset =   range & (~(range-1));
+#endif
     multiresult = random32bit * range;
     leftover = (uint32_t) multiresult;
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
@@ -157,14 +170,6 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
             leftover = (uint32_t) multiresult;
         } while (leftover > threshold);
     }
-    return multiresult >> 32; // [0, range)
-}
-
-// just to test how fast it could get in principle
-uint32_t ranged_random_mult_fake(uint32_t range) {
-    uint64_t random32bit, multiresult;
-    random32bit = pcg32_random();
-    multiresult = random32bit * range;
     return multiresult >> 32; // [0, range)
 }
 
@@ -268,12 +273,6 @@ void loop_mult64_linear(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
-void loop_mult_fake_linear(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_mult_fake(range  + i);
-    }
-}
-
 void loop_mult_lazy_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mult_lazy(range  + i);
@@ -335,12 +334,6 @@ void loop_mult(size_t count, uint32_t range, uint32_t *output) {
 void loop_mult64(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mult64(range);
-    }
-}
-
-void loop_mult_fake(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_mult_fake(range);
     }
 }
 
@@ -408,7 +401,6 @@ int main(int argc, char **argv) {
 
     TIMED_TEST(loop_mult(count, range, output), count);
     TIMED_TEST(loop_mult64(count, range, output), count);
-    TIMED_TEST(loop_mult_fake(count, range, output), count);
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2(count, range, output), count);
@@ -420,7 +412,6 @@ int main(int argc, char **argv) {
 
     TIMED_TEST(loop_mult_linear(count, range, output), count);
     TIMED_TEST(loop_mult64_linear(count, range, output), count);
-    TIMED_TEST(loop_mult_fake_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazy_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2_linear(count, range, output), count);
