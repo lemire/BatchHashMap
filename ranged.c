@@ -137,6 +137,11 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult64(uint32_t range) {
     uint64_t random64bit = pcg64_random() ;
     uint64_t high;
     uint64_t  low;
+
+/// could maybe be done without assembly
+// http://stackoverflow.com/questions/1541426/computing-high-64-bits-of-a-64x64-int-product-in-c
+/// return (int64_t)((__int128_t)x*y >> 64);
+//
     MUL64(high,low,range,random64bit);
     // = _mulx_u64(random64bit,range,&high);
     return (uint32_t) high;
