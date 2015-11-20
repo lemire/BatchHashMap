@@ -130,6 +130,24 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult(uint32_t range) {
     return multiresult >> 32; // [0, range)
 }
 
+uint32_t __attribute__ ((noinline)) ranged_random_revmult(uint32_t range) {
+    uint64_t random32bit,  multiresult;
+    uint32_t leftover, threshold;
+    if((range & ( range - 1 )) == 0) return pcg32_random() & (range - 1);
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
+    threshold = 0xFFFFFFFF % range ;
+    do {
+        random32bit = pcg32_random();
+        multiresult = random32bit * range;
+        leftover = (uint32_t) multiresult;
+    } while (leftover <= threshold);
+    return multiresult >> 32; // [0, range)
+}
 
 #define MUL64(rh,rl,i1,i2) asm ("mulq %3" : "=a"(rl), "=d"(rh) : "a"(i1), "r"(i2) : "cc")
 
@@ -142,6 +160,36 @@ uint32_t __attribute__ ((noinline)) ranged_random_mult64(uint32_t range) {
     return (uint32_t) high;
 }
 
+
+uint32_t ranged_random_revmult_lazy(uint32_t range) {
+    uint64_t random32bit, multiresult;
+    uint32_t leftover;
+    uint32_t threshold;
+    uint32_t lsbset;
+    random32bit = pcg32_random();
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
+#ifdef __BMI__
+    lsbset =  _blsi_u32(range);
+#else
+    lsbset =   range & (~(range-1));
+#endif
+    multiresult = random32bit * range;
+    leftover = (uint32_t) multiresult;
+    if(leftover <  range - lsbset ) {
+        threshold = 0xFFFFFFFF % range ;
+         while (leftover <= threshold) {
+            random32bit = pcg32_random();
+            multiresult = random32bit * range;
+            leftover = (uint32_t) multiresult;
+        }
+    }
+    return multiresult >> 32; // [0, range)
+}
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
     uint64_t random32bit, multiresult;
@@ -164,11 +212,66 @@ uint32_t ranged_random_mult_lazy(uint32_t range) {
     leftover = (uint32_t) multiresult;
     if(leftover > lsbset - range - 1 ) {//2^32 -range +lsbset <= leftover
         threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
-        do {
+        while (leftover > threshold) {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
             leftover = (uint32_t) multiresult;
-        } while (leftover > threshold);
+        }
+    }
+    return multiresult >> 32; // [0, range)
+}
+
+
+uint32_t ranged_random_revmult_lazynopower2(uint32_t range) {
+    uint64_t random32bit,  multiresult;
+    uint32_t leftover;
+    uint32_t threshold;
+    random32bit = pcg32_random();
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
+    multiresult = random32bit * range;
+    leftover = (uint32_t) multiresult;
+    if(leftover < range) {
+        if((range & (range - 1)) == 0) {
+            return pcg32_random() & (range - 1);
+        }
+        threshold = 0xFFFFFFFF % range;
+        while (leftover <= threshold) {
+            random32bit = pcg32_random();
+            multiresult = random32bit * range;
+            leftover = (uint32_t) multiresult;
+        }
+    }
+    return multiresult >> 32; // [0, range)
+}
+
+uint32_t ranged_random_revmult_lazycheckpower2(uint32_t range) {
+    uint64_t random32bit, multiresult;
+    uint32_t leftover;
+    uint32_t threshold;
+    random32bit = pcg32_random();
+    if((range & (range - 1)) == 0) {
+        return random32bit & (range - 1);
+    }
+    if(range >0x80000000) {// if range > 1<<31
+        while(random32bit >= range) {
+            random32bit = pcg32_random();
+        }
+        return random32bit; // [0, range)
+    }
+    multiresult = random32bit * range;
+    leftover = (uint32_t) multiresult;
+    if(leftover < range ) {
+        threshold = 0xFFFFFFFF % range ;
+        while (leftover <= threshold) {
+            random32bit = pcg32_random();
+            multiresult = random32bit * range;
+            leftover = (uint32_t) multiresult;
+        }
     }
     return multiresult >> 32; // [0, range)
 }
@@ -193,11 +296,11 @@ uint32_t ranged_random_mult_lazynopower2(uint32_t range) {
         }
         threshold = 0xFFFFFFFF / range * range - 1;
         //threshold = (uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
-        do {
+        while (leftover > threshold) {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
             leftover = (uint32_t) multiresult;
-        } while (leftover > threshold);
+        }
     }
     return multiresult >> 32; // [0, range)
 }
@@ -220,11 +323,11 @@ uint32_t ranged_random_mult_lazycheckpower2(uint32_t range) {
     leftover = (uint32_t) multiresult;
     if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
         threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
-        do {
+        while (leftover > threshold) {
             random32bit = pcg32_random();
             multiresult = random32bit * range;
             leftover = (uint32_t) multiresult;
-        } while (leftover > threshold);
+        }
     }
     return multiresult >> 32; // [0, range)
 }
@@ -267,6 +370,12 @@ void loop_mult_linear(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+void loop_revmult_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult(range  + i);
+    }
+}
+
 void loop_mult64_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mult64(range  + i);
@@ -291,6 +400,25 @@ void loop_mult_lazycheckpower2_linear(size_t count, uint32_t range, uint32_t *ou
     }
 }
 
+void loop_revmult_lazy_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazy(range  + i);
+    }
+}
+
+void loop_revmult_lazynopower2_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazynopower2(range  + i);
+    }
+}
+
+void loop_revmult_lazycheckpower2_linear(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazycheckpower2(range  + i);
+    }
+}
+
+
 
 void loop_mod_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
@@ -304,17 +432,6 @@ void loop_modgolang_linear(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
-void loop_recycle_mult_linear(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_recycle_mult(range  + i);
-    }
-}
-
-void loop_recycle_mod_linear(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_recycle_mod(range  + i);
-    }
-}
 
 void loop_pcg32_linear(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
@@ -331,6 +448,11 @@ void loop_mult(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+void loop_revmult(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult(range);
+    }
+}
 void loop_mult64(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mult64(range);
@@ -356,6 +478,26 @@ void loop_mult_lazycheckpower2(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
+void loop_revmult_lazy(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazy(range);
+    }
+}
+
+void loop_revmult_lazynopower2(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazynopower2(range);
+    }
+}
+
+
+void loop_revmult_lazycheckpower2(size_t count, uint32_t range, uint32_t *output) {
+    for (size_t i = 0; i < count; i++) {
+        *output++ = ranged_random_revmult_lazycheckpower2(range);
+    }
+}
+
+
 void loop_mod(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
         *output++ = ranged_random_mod(range);
@@ -369,17 +511,6 @@ void loop_modgolang(size_t count, uint32_t range, uint32_t *output) {
     }
 }
 
-void loop_recycle_mult(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_recycle_mult(range);
-    }
-}
-
-void loop_recycle_mod(size_t count, uint32_t range, uint32_t *output) {
-    for (size_t i = 0; i < count; i++) {
-        *output++ = ranged_random_recycle_mod(range);
-    }
-}
 
 void loop_pcg32(size_t count, uint32_t range, uint32_t *output) {
     for (size_t i = 0; i < count; i++) {
@@ -400,10 +531,14 @@ int main(int argc, char **argv) {
     printf("\n repeated calls with range value %llu \n",(unsigned long long )range);
 
     TIMED_TEST(loop_mult(count, range, output), count);
+    TIMED_TEST(loop_revmult(count, range, output), count);
     TIMED_TEST(loop_mult64(count, range, output), count);
     TIMED_TEST(loop_mult_lazy(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazy(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazynopower2(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazycheckpower2(count, range, output), count);
     TIMED_TEST(loop_mod(count, range, output), count);
     if(range < (1<<31)) TIMED_TEST(loop_modgolang(count, range, output), count);
     TIMED_TEST(loop_pcg32(count, range, output), count);
@@ -411,10 +546,14 @@ int main(int argc, char **argv) {
     printf("\n range value will increment starting at %llu and going toward %llu \n",(unsigned long long )range,(unsigned long long )range+count);
 
     TIMED_TEST(loop_mult_linear(count, range, output), count);
+    TIMED_TEST(loop_revmult_linear(count, range, output), count);
     TIMED_TEST(loop_mult64_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazy_linear(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazy_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazynopower2_linear(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazynopower2_linear(count, range, output), count);
     TIMED_TEST(loop_mult_lazycheckpower2_linear(count, range, output), count);
+    TIMED_TEST(loop_revmult_lazycheckpower2_linear(count, range, output), count);
     TIMED_TEST(loop_mod_linear(count, range, output), count);
     if(range < (1<<31)) TIMED_TEST(loop_modgolang_linear(count, range, output), count);
     TIMED_TEST(loop_pcg32_linear(count, range, output), count);

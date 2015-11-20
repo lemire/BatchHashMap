@@ -1723,34 +1723,34 @@ void  fast_shuffle(int *storage, size_t size) {
 
 
 uint32_t ranged_random_mult_lazy(uint32_t range) {
-    uint64_t random32bit, multiresult;
-    uint32_t leftover;
-    uint32_t threshold;
-    random32bit = pcg32_random();
-    if((range & (range - 1)) == 0) {
-        return random32bit & (range - 1);
-    }
-    if(range >0x80000000) {// if range > 1<<31
-        while(random32bit >= range) {
-            random32bit = pcg32_random();
-        }
-        return random32bit; // [0, range)
-    }
-    multiresult = random32bit * range;
-    leftover = (uint32_t) multiresult;
-    if(leftover >  - range - 1 ) {//2^32 -range  <= leftover
-        threshold = 0xFFFFFFFF / range * range - 1;//(uint32_t)((((uint64_t)1)<<32)/range) * range  - 1;
-        do {
-            random32bit = pcg32_random();
-            multiresult = random32bit * range;
-            leftover = (uint32_t) multiresult;
-        } while (leftover > threshold);
-    }
-    return multiresult >> 32; // [0, range)
+  uint64_t random32bit, multiresult;
+  uint32_t leftover;
+  uint32_t threshold;
+  random32bit = fastrand();
+  if((range & (range - 1)) == 0) {
+      return random32bit & (range - 1);
+  }
+  if(range >0x80000000) {// if range > 1<<31
+      while(random32bit >= range) {
+          random32bit = fastrand();
+      }
+      return random32bit; // [0, range)
+  }
+  multiresult = random32bit * range;
+  leftover = (uint32_t) multiresult;
+  if(leftover < range ) {
+      threshold = 0xFFFFFFFF % range ;
+      while (leftover <= threshold) {
+          random32bit = fastrand();
+          multiresult = random32bit * range;
+          leftover = (uint32_t) multiresult;
+      }
+  }
+  return multiresult >> 32; // [0, range)
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
-void  shuffle_fastfog(int *storage, uint32_t size) {
+void  shuffle_fastmult(int *storage, uint32_t size) {
     uint32_t i;
     for (i=size; i>1; i--) {
         uint32_t nextpos = ranged_random_mult_lazy(i);
@@ -2261,13 +2261,13 @@ int demo(size_t array_size) {
 
 
         RDTSC_START(cycles_start);
-        shuffle_fastfog(array, array_size );
+        shuffle_fastmult(array, array_size );
         bogus += array[0];
         RDTSC_FINAL(cycles_final);
 
         cycles_per_search1 =
             ( cycles_final - cycles_start) / (float) (array_size);
-        printf("fast fog shuffle  cycles per key  %.2f \n", cycles_per_search1);
+        printf("fast mult shuffle  cycles per key  %.2f \n", cycles_per_search1);
 
         qsort( array, array_size, sizeof(int), compare );
         for(i = 0; i < array_size; ++i) {
