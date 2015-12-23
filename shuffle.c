@@ -262,7 +262,7 @@ void  shuffle_fastmult(int *storage, uint32_t size) {
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
-void  fast_shuffle(int *storage, size_t size) {
+void  oldfast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t bused = 32 - __builtin_clz(size);
     uint32_t m2 = 1 << (32- __builtin_clz(size-1));
@@ -281,7 +281,30 @@ void  fast_shuffle(int *storage, size_t size) {
         bused--;
     }
 }
-
+void  fast_shuffle(int *storage, size_t size) {
+    size_t i;
+    i=size;
+    while(i>1) {
+            uint32_t nextpos = standard_ranged(i);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+            i--;
+    }
+}
+void  fast_shuffle2(int *storage, size_t size) {
+    size_t i;
+    i=size;
+    while(i>1) {
+            uint32_t nextpos = standard_ranged2(i);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+            i--;
+    }
+}
 // Fisher-Yates shuffle, shuffling an array of integers
 void  shuffle_float(int *storage, uint32_t size) {
     uint32_t i;
@@ -604,6 +627,17 @@ int demo(size_t array_size) {
     cycles_per_search1 =
         ( cycles_final - cycles_start) / (float) (array_size);
     printf("fast shuffle cycles per key  %.2f \n", cycles_per_search1);
+
+
+    RDTSC_START(cycles_start);
+    fast_shuffle2( array, array_size );
+    bogus += array[0];
+    RDTSC_FINAL(cycles_final);
+
+    cycles_per_search1 =
+        ( cycles_final - cycles_start) / (float) (array_size);
+    printf("fast shuffle 2 cycles per key  %.2f \n", cycles_per_search1);
+
 
     RDTSC_START(cycles_start);
     shuffle_fastmult( array, array_size );

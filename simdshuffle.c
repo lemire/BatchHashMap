@@ -1700,7 +1700,7 @@ uint32_t fastFairRandomInt(randbuf_t * rb, uint32_t size, uint32_t mask, uint32_
 }
 
 // Fisher-Yates shuffle, shuffling an array of integers
-void  fast_shuffle(int *storage, size_t size) {
+void  oldfast_shuffle(int *storage, size_t size) {
     size_t i;
     uint32_t bused = 32 - __builtin_clz(size);
     uint32_t m2 = 1 << (32- __builtin_clz(size-1));
@@ -1717,6 +1717,18 @@ void  fast_shuffle(int *storage, size_t size) {
         }
         m2 = m2 >> 1;
         bused--;
+    }
+}
+void  fast_shuffle(int *storage, size_t size) {
+    size_t i;
+    i=size;
+    while(i>1) {
+            uint32_t nextpos = standard_ranged(i);//
+            int tmp = storage[i - 1];// likely in cache
+            int val = storage[nextpos]; // could be costly
+            storage[i - 1] = val;
+            storage[nextpos] = tmp; // you might have to read this store later
+            i--;
     }
 }
 

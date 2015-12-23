@@ -119,6 +119,26 @@ uint64_t fastrand64(void) {
 #endif
 }
 
+// as in pcg
+uint32_t standard_ranged(uint32_t r) {
+    uint32_t threshold = -r % r;
+    for (;;) {
+        uint32_t ra = fastrand();
+        if (ra >= threshold)
+            return ra % r;
+    }
+}
+uint32_t standard_ranged2(uint32_t r) {
+    uint32_t threshold = -r % r;
+    uint32_t ra = fastrand();
+    if(ra >= r) return ra % r;
+    for (;;) {
+        uint32_t ra = fastrand();
+        if (ra >= threshold)
+            return ra % r;
+    }
+}
+
 // return a double in [0,1)
 double fastranddouble() {
   uint64_t lrv = fastrand64();
