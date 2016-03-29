@@ -1,6 +1,8 @@
 /* minimalist C hash table originally from https://gist.github.com/tonious/1377667
 The author declared it to be in the public domain. */
 
+// gcc -O3 -o hashtable hashtable.c
+
 /* Enable strdup */
 #ifndef __USE_XOPEN2K8
 #define __USE_XOPEN2K8 1
@@ -158,13 +160,21 @@ char *ht_get( hashtable_t *hashtable, char *key ) {
 }
 
 /* Warn the hash table that you will soon retrieve the key. Return the hash value. */
-size_t ht_prefetch( hashtable_t *hashtable, char *key ) {
+size_t ht_getbin_prefetch( hashtable_t *hashtable, char *key ) {
     size_t bin = ht_hash( hashtable, key );
     __builtin_prefetch(& hashtable->table[ bin ]);
     return bin;
 }
 
-/* Retrieve a key-value pair from a hash table. You need to call ht_prefetch first. */
+
+/* Warn the hash table that you will soon retrieve the key. Return the hash value. */
+size_t ht_getbin( hashtable_t *hashtable, char *key ) {
+    size_t bin = ht_hash( hashtable, key );
+    __builtin_prefetch(& hashtable->table[ bin ]);
+    return bin;
+}
+
+/* Retrieve a key-value pair from a hash table. You need to call ht_getbin or ht_getbin_prefetch first. */
 char *ht_get_fast( hashtable_t *hashtable, char *key, size_t bin ) {
     entry_t *pair;
 
@@ -285,7 +295,7 @@ int main( int argc, char **argv ) {
     }
     ht_describe(hashtable);
     printf("\n");
-    for(size_t Nq= 1; Nq<15; Nq++) {
+    for(size_t Nq= 1; Nq<15; Nq*=2) {
         size_t total;
         printf("=== Trying a batch of %zu queries ===\n",Nq);
         queries = (char **) malloc(Nq * sizeof(char *));
@@ -307,7 +317,7 @@ int main( int argc, char **argv ) {
             }
 
             for(size_t i = 0; i < Nq; ++i) {
-                hashbuffer[i] = ht_prefetch( hashtable, queries[i] );
+                hashbuffer[i] = ht_getbin_prefetch( hashtable, queries[i] );
             }
             RDTSC_START(cycles_start);
             for(size_t i = 0; i < Nq; ++i) {
@@ -319,7 +329,7 @@ int main( int argc, char **argv ) {
         }
         cycles_per_search1 =
             total / (float) (Nq*T);
-        printf("one-by-one-with-outside-prefetch (cheating) cycles %.2f \n", cycles_per_search1);
+        printf("one-by-one-with-outside-prefetch (cheating) cycles %.2f \n\n", cycles_per_search1);
         /**
         * Next part is usual one by one
         */
@@ -338,7 +348,7 @@ int main( int argc, char **argv ) {
         }
         cycles_per_search1 =
             total / (float) (Nq*T);
-        printf("one-by-one cycles %.2f \n", cycles_per_search1);
+        printf("one-by-one cycles %.2f \n\n", cycles_per_search1);
         /**
         * Next are complicated batched queries.
         */
@@ -362,7 +372,7 @@ int main( int argc, char **argv ) {
         cycles_per_search2 =
             total / (float) (Nq*T);
         printf("batch cycles %.2f \n", cycles_per_search2);
-        printf("batch is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
+        printf("batch is more efficient by %.2f percent\n\n", (cycles_per_search1-cycles_per_search2)*100.0/cycles_per_search1);
         /**
         * We try a two-step approach, fetch and compute hash, then query.
         */
@@ -374,7 +384,7 @@ int main( int argc, char **argv ) {
 
             RDTSC_START(cycles_start);
             for(size_t i = 0; i < Nq; ++i) {
-                hashbuffer[i] = ht_prefetch( hashtable, queries[i] );
+                hashbuffer[i] = ht_getbin_prefetch( hashtable, queries[i] );
             }
             for(size_t i = 0; i < Nq; ++i) {
                 bogus += ht_get_fast( hashtable, queries[i], hashbuffer[i] )[0];
@@ -385,32 +395,34 @@ int main( int argc, char **argv ) {
         }
         cycles_per_search3 =
             total / (float) (Nq*T);
-        printf("two-step cycles %.2f \n", cycles_per_search3);
+        printf("two-step withprefetch cycles %.2f \n", cycles_per_search3);
         printf("two-step is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search3)*100.0/cycles_per_search1);
-        printf("bogus = %d \n\n\n",bogus);
-
-
+        printf("bogus = %d \n\n",bogus);
         /**
-        * rest are optimistic queries.
+        * We try a two-step approach, fetch and compute hash, then query.
         */
         total = 0;
         for(size_t t=0; t<T; ++t) {
             for(size_t i = 0; i < Nq; ++i) {
-                queries[i] = givemeastring(rand() % N/4);
+                queries[i] = givemeastring(rand() % actrange);
             }
+
             RDTSC_START(cycles_start);
             for(size_t i = 0; i < Nq; ++i) {
-                bogus += ht_get_optimistic( hashtable, queries[i] )[0];
+                hashbuffer[i] = ht_getbin( hashtable, queries[i] );
+            }
+            for(size_t i = 0; i < Nq; ++i) {
+                bogus += ht_get_fast( hashtable, queries[i], hashbuffer[i] )[0];
             }
             RDTSC_FINAL(cycles_final);
             total += cycles_final - cycles_start;
 
         }
-        cycles_per_search1 =
+        cycles_per_search3 =
             total / (float) (Nq*T);
-        printf("one-by-one optimistic  cycles %.2f \n", cycles_per_search1);
+        printf("two-step noprefetch cycles %.2f \n", cycles_per_search3);
+        printf("two-step is more efficient by %.2f percent\n", (cycles_per_search1-cycles_per_search3)*100.0/cycles_per_search1);
         printf("bogus = %d \n\n\n",bogus);
-
 
 
 
